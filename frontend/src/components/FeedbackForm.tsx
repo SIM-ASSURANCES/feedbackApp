@@ -5,6 +5,7 @@ interface EmployeeOption {
   id: string;
   name: string;
   position: string;
+  email: string;
 }
 
 interface Props {
