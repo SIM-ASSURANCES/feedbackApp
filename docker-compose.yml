@@ -1,0 +1,40 @@
+version: '3.8'
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: feedback_user
+      POSTGRES_PASSWORD: feedback_password
+      POSTGRES_DB: feedback_app
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - '5432:5432'
+
+  backend:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgres://feedback_user:feedback_password@db:5432/feedback_app
+      JWT_SECRET: supersecretchangeme
+      PORT: 3001
+      RATE_LIMIT_WINDOW: 15
+      RATE_LIMIT_MAX: 100
+    ports:
+      - '3001:3001'
+    depends_on:
+      - db
+    volumes:
+      - ./backend:/usr/src/app
+
+  frontend:
+    build: ./frontend
+    ports:
+      - '5173:5173'
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/usr/src/app
+
+volumes:
+  db_data:
