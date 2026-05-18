@@ -31,9 +31,8 @@ CREATE TABLE IF NOT EXISTS audit_logs (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Exemple de comptes
+-- Compte admin par défaut
 INSERT INTO employees (name, email, password_hash, role)
 VALUES
-  ('Admin SIM', 'admin@sim-assurances.ci', '$2b$12$4amWgyEVR8dxLQw9tCINEOOX8Bs5xUe1.2pN9oXgCKgjS3kWj0l0O', 'admin'),
-  ('Test User', 'test@sim-assurances.ci', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LeXt7hJc8t8hMzO4O', 'user')
+  ('Administrateur', 'admin@feedback.com', '$2b$12$6I3MS1IcqVRxrlkLVKsUdOi8lw6TD.EztyTgTg5b9mSkxOcJ8Vhge', 'admin')
 ON CONFLICT (email) DO NOTHING;
