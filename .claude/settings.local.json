@@ -4,7 +4,9 @@
       "Bash(node -e \"require\\('dotenv'\\).config\\(\\); const { Pool } = require\\('pg'\\); const pool = new Pool\\({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } }\\); pool.query\\('SELECT NOW\\(\\)', \\(err, res\\) => { if \\(err\\) { console.error\\('Erreur connexion:', err.message\\); } else { console.log\\('Connexion Supabase OK -', res.rows[0].now\\); } pool.end\\(\\); }\\);\")",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://hdqgiwnezclbmrnbrlpy.supabase.co/rest/v1/\")",
       "PowerShell(try { $r = Invoke-WebRequest -Uri \"https://hdqgiwnezclbmrnbrlpy.supabase.co/rest/v1/\" -TimeoutSec 8 -UseBasicParsing; \"Status: $\\($r.StatusCode\\)\" } catch { \"Erreur: $\\($_.Exception.Message\\)\" })",
-      "Bash(node -e ' *)"
+      "Bash(node -e ' *)",
+      "Bash(git -C /c/Users/HP/Desktop/feedback log --oneline --all)",
+      "Bash(git -C \"C:/Users/HP/Desktop/feedback\" log --oneline --all)"
     ]
   }
 }
