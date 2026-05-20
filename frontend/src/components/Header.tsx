@@ -9,11 +9,13 @@ interface HeaderProps {
 
 function Header({ isAuthenticated = false, onLogout }: HeaderProps) {
   const location = useLocation();
-  const isAdmin = location.pathname.includes('/admin');
+  const userRole = localStorage.getItem('feedback_role');
+  const isAdmin = userRole === 'admin' || location.pathname.includes('/admin');
   const [menuOpen, setMenuOpen] = useState(false);
 
   const handleLogout = () => {
     setMenuOpen(false);
+    localStorage.removeItem('feedback_role');
     if (onLogout) {
       onLogout();
     }

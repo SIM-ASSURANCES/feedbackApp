@@ -1,6 +1,6 @@
 /* ========== HEADER ========== */
 .header {
-  background: linear-gradient(135deg, var(--color-secondary) 0%, rgba(81, 174, 226, 0.92) 100%);
+  background: var(--color-primary);
   box-shadow: 0 10px 30px rgba(10, 22, 40, 0.18);
   position: sticky;
   top: 0;

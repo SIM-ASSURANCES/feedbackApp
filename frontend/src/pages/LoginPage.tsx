@@ -20,6 +20,7 @@ function LoginPage() {
       const response = await api.post('/auth/login', { email, password });
       const { token, role } = response.data;
       localStorage.setItem('feedback_token', token);
+      localStorage.setItem('feedback_role', role);
       setAuthToken(token);
       if (role === 'admin') {
         navigate('/admin');
@@ -34,7 +35,7 @@ function LoginPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #004B9C 0%, #51AEE2 50%, #004B9C 100%)' }}>
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #004B9C 0%, #003d80 35%, #51AEE2 65%, #004B9C 100%)' }}>
       <Header />
 
       <main style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(100vh - 80px)', padding: '0 clamp(12px, 4vw, 40px)' }}>

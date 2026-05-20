@@ -85,7 +85,6 @@
   padding: 0 24px;
 }
 
-/* ========== CARDS ========== */
 .card {
   background: white;
   border-radius: 20px;
@@ -173,7 +172,7 @@
   display: block;
   margin-bottom: 12px;
   font-weight: 600;
-  color: var(--color-text);
+  color: #0f172a;
   font-size: 0.95rem;
 }
 
@@ -187,6 +186,7 @@
   background: rgba(251, 253, 255, 0.8);
   transition: all 0.3s ease;
   font-size: 0.95rem;
+  color: #0f172a;
 }
 
 .form-group input:focus,
@@ -196,6 +196,80 @@
   border-color: var(--color-primary);
   background: white;
   box-shadow: 0 0 0 4px rgba(0, 75, 156, 0.1);
+}
+
+/* ========== CRITERIA ROWS (Feedback Form) ========== */
+.criterion-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 16px 20px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 1) 0%, rgba(248, 250, 252, 1) 100%);
+  border: 1px solid rgba(81, 174, 226, 0.15);
+  border-radius: 16px;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(10, 22, 40, 0.02);
+}
+
+.criterion-row:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(81, 174, 226, 0.12);
+  border-color: rgba(81, 174, 226, 0.3);
+}
+
+.criterion-label {
+  font-weight: 700;
+  color: #0f172a;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.star-icon {
+  transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.star-icon:hover {
+  transform: scale(1.25);
+}
+
+/* ========== TAGS ========== */
+.tags-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed rgba(81, 174, 226, 0.2);
+  width: 100%;
+}
+
+.tag-btn {
+  background: white;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 50px;
+  padding: 6px 14px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tag-btn:hover {
+  background: rgba(81, 174, 226, 0.05);
+  border-color: rgba(81, 174, 226, 0.3);
+  color: #0A1628;
+}
+
+.tag-btn.active {
+  background: rgba(81, 174, 226, 0.15);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  box-shadow: 0 2px 8px rgba(81, 174, 226, 0.2);
 }
 
 /* ========== BUTTONS ========== */

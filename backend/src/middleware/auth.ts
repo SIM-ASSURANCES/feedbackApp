@@ -49,3 +49,18 @@ export function authGuardAdmin(req: Request, res: Response, next: NextFunction) 
     return res.status(401).json({ message: 'Invalid token' });
   }
 }
+
+export function authGuardAny(req: Request, res: Response, next: NextFunction) {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith('Bearer ')) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const payload = verifyToken(token);
+    res.locals.user = payload;
+    next();
+  } catch (error) {
+    return res.status(401).json({ message: 'Invalid token' });
+  }
+}

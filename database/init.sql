@@ -18,7 +18,8 @@ CREATE TABLE IF NOT EXISTS feedbacks (
   source VARCHAR(20) NOT NULL DEFAULT 'public',
   submitted_at DATE NOT NULL DEFAULT CURRENT_DATE,
   is_moderated BOOLEAN DEFAULT FALSE,
-  rating INTEGER DEFAULT 0
+  rating INTEGER DEFAULT 0,
+  participant_id VARCHAR(50)
 );
 
 CREATE TABLE IF NOT EXISTS audit_logs (

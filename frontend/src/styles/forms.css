@@ -232,3 +232,33 @@
     font-size: 0.9rem;
   }
 }
+
+/* Row of action buttons in stepper forms */
+.form-buttons {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 32px;
+  border-top: 1px solid #e2e8f0;
+  padding-top: 24px;
+}
+
+.form-buttons button {
+  flex: 1 1 0% !important;
+  width: auto !important;
+  min-width: 0 !important;
+  height: 46px !important;
+  padding: 0 16px !important;
+  margin: 0 !important;
+  box-sizing: border-box !important;
+}
+
+@media (max-width: 480px) {
+  .form-buttons {
+    gap: 10px;
+  }
+  .form-buttons button {
+    font-size: 0.85rem !important;
+    padding: 0 8px !important;
+  }
+}
