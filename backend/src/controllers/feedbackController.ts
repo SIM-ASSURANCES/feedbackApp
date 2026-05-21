@@ -14,9 +14,9 @@ export async function getPublicFeedbacks(_req: Request, res: Response) {
 }
 
 export async function submitFeedback(req: Request, res: Response) {
-  const { recipientId, content, rating } = req.body;
-  if (!recipientId || !content || content.length < 20 || content.length > 500) {
-    return res.status(400).json({ message: 'Recipient and content are required (20-500 chars)' });
+  const { recipientId, content, rating, participantId } = req.body;
+  if (!recipientId || !content || content.length < 20 || content.length > 1500) {
+    return res.status(400).json({ message: 'Recipient and content are required (20-1500 chars)' });
   }
 
   // Validation anti-spam basique
@@ -41,8 +41,8 @@ export async function submitFeedback(req: Request, res: Response) {
   }
 
   await query(
-    'INSERT INTO feedbacks(id, content, recipient_id, source, submitted_at, is_moderated, rating) VALUES(gen_random_uuid(), $1, $2, $3, CURRENT_DATE, FALSE, $4)',
-    [content.trim(), recipientId, 'public', rating || 0]
+    'INSERT INTO feedbacks(id, content, recipient_id, source, submitted_at, is_moderated, rating, participant_id) VALUES(gen_random_uuid(), $1, $2, $3, CURRENT_DATE, FALSE, $4, $5)',
+    [content.trim(), recipientId, 'public', rating || 0, participantId || null]
   );
 
   return res.status(201).json({ message: 'Feedback submitted anonymously' });

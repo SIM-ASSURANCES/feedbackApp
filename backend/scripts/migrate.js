@@ -24,11 +24,7 @@ async function main() {
     process.exit(1);
   }
 
-  const isSupabase = databaseUrl.includes('supabase.co');
-  const pool = new Pool({
-    connectionString: databaseUrl,
-    ...(isSupabase && { ssl: { rejectUnauthorized: false } }),
-  });
+  const pool = new Pool({ connectionString: databaseUrl });
 
   try {
     const client = await pool.connect();

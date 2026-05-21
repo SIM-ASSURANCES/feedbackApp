@@ -26,12 +26,13 @@ function UserDashboard() {
 
   function handleLogout() {
     localStorage.removeItem('feedback_token');
+    localStorage.removeItem('feedback_role');
     setAuthToken('');
     navigate('/');
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #004B9C 0%, #51AEE2 50%, #004B9C 100%)' }}>
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #004B9C 0%, #003d80 35%, #51AEE2 65%, #004B9C 100%)' }}>
       <Header isAuthenticated={true} onLogout={handleLogout} />
 
       <main style={{ padding: '0 clamp(12px, 4vw, 40px)' }}>
@@ -39,24 +40,24 @@ function UserDashboard() {
         <section className="hero" style={{ marginBottom: '50px' }}>
           <div className="hero-content">
             <h1>Bienvenue, <span className="highlight-purple">{userName}</span> 👋</h1>
-            <p>Découvrez les critiques constructives que vos collègues vous ont partagées</p>
+            <p>Découvrez les retours constructifs que vos collègues vous ont partagées</p>
           </div>
         </section>
 
         {/* Stats Card */}
         <div className="card" style={{ marginBottom: '40px', textAlign: 'center' }}>
-          <h3 style={{ margin: '0 0 10px 0', color: '#51AEE2' }}>Critiques reçues</h3>
+          <h3 style={{ margin: '0 0 10px 0', color: '#51AEE2' }}>Retours reçus</h3>
           <p style={{ fontSize: '2.5rem', fontWeight: 800, color: '#0A1628', margin: '0' }}>
             {isLoading ? '...' : feedbacks.length}
           </p>
           <small style={{ color: '#94a3b8' }}>
-            {feedbacks.length === 0 ? 'Aucune critique pour le moment' : 'Continuez à vous améliorer !'}
+            {feedbacks.length === 0 ? 'Aucun retour pour le moment' : 'Continuez à vous améliorer !'}
           </small>
         </div>
 
         {/* Feedbacks List */}
         <section>
-          <h2 style={{ color: 'white', fontSize: '2rem', fontWeight: 800, marginBottom: '10px', textAlign: 'center' }}>Mes critiques</h2>
+          <h2 style={{ color: 'white', fontSize: '2rem', fontWeight: 800, marginBottom: '10px', textAlign: 'center' }}>Mes retours</h2>
           <p style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '1rem', marginBottom: '30px', textAlign: 'center' }}>
             Seuls les retours qui vous sont destinés s'affichent, sans information sur l'auteur
           </p>
@@ -68,7 +69,7 @@ function UserDashboard() {
           ) : feedbacks.length === 0 ? (
             <div className="card" style={{ textAlign: 'center', padding: '48px' }}>
               <p style={{ fontSize: '1.1rem', color: '#94a3b8' }}>
-                Vous n'avez pas encore de critiques. Invitez vos collègues à partager leurs avis !
+                Vous n'avez pas encore de retours. Invitez vos collègues à partager leurs avis !
               </p>
             </div>
           ) : (
@@ -80,8 +81,14 @@ function UserDashboard() {
                       "{feedback.content}"
                     </p>
                     {feedback.rating && feedback.rating > 0 ? (
-                      <div style={{ color: '#FF9500', fontSize: '1.2rem', marginBottom: '10px' }}>
-                        {'★'.repeat(feedback.rating)}{'☆'.repeat(5 - feedback.rating)}
+                      <div style={{ color: '#FF9500', fontSize: '1.1rem', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span>
+                          {'★'.repeat(Math.min(feedback.rating, feedback.rating > 5 ? 10 : 5))}
+                          {'☆'.repeat(Math.max(0, (feedback.rating > 5 ? 10 : 5) - feedback.rating))}
+                        </span>
+                        <span style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 600 }}>
+                          ({feedback.rating}/{feedback.rating > 5 ? 10 : 5})
+                        </span>
                       </div>
                     ) : null}
                   </div>
