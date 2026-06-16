@@ -10,7 +10,6 @@ import api from '../services/api';
 function PublicPage() {
   const [feedbacks, setFeedbacks] = useState<Array<{ id: string; content: string; submitted_at: string; recipient_name: string; rating?: number }>>([]);
   const [activeTab, setActiveTab] = useState<'colleague' | 'conditions'>('colleague');
-  const [submittedForms, setSubmittedForms] = useState({ colleague: false, conditions: false });
   const navigate = useNavigate();
   const isAuthenticated = !!localStorage.getItem('feedback_token');
 
@@ -30,26 +29,6 @@ function PublicPage() {
   useEffect(() => {
     loadFeedbacks();
   }, []);
-
-  const handleFormSubmit = (form: 'colleague' | 'conditions') => {
-    setSubmittedForms((prev) => {
-      const next = { ...prev, [form]: true };
-      const otherForm = form === 'colleague' ? 'conditions' : 'colleague';
-      if (!next[otherForm]) {
-        setActiveTab(otherForm);
-      }
-      return next;
-    });
-    loadFeedbacks();
-  };
-
-  const formReminder = submittedForms.colleague && submittedForms.conditions
-    ? 'Merci ! Vos deux retours ont bien été envoyés.'
-    : submittedForms.colleague
-      ? 'Merci pour votre feedback collaborateur. Pouvez-vous maintenant compléter le questionnaire sur les conditions de travail ?'
-      : submittedForms.conditions
-        ? 'Merci pour votre retour sur les conditions de travail. Pouvez-vous également partager un avis sur l’un de vos collaborateurs ?'
-        : 'Pour un retour complet, merci de remplir les deux formulaires ci-dessous.';
 
   return (
     <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #004B9C 0%, #003d80 35%, #51AEE2 65%, #004B9C 100%)' }}>
@@ -91,14 +70,14 @@ function PublicPage() {
         <section>
           <div style={{ marginBottom: '24px', textAlign: 'center' }}>
             <h2 style={{ color: 'white', fontSize: '2rem', fontWeight: 800, marginBottom: '8px' }}>Soumettre un feedback</h2>
-            <p style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: '1.1rem', margin: '0 0 12px 0' }}>
-              Choisissez un formulaire à la fois : avis collaborateur ou conditions de travail.
-            </p>
-            <p style={{ color: 'rgba(255, 255, 255, 0.75)', fontSize: '0.95rem', margin: 0 }}>
-              {formReminder}
+            <p style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: '1.1rem', margin: '0 0 24px 0' }}>
+              {activeTab === 'colleague' 
+                ? 'Partagez votre avis de façon constructive sur la collaboration avec vos collègues' 
+                : 'Évaluez anonymement les conditions de travail au sein de SIM Assurances'}
             </p>
           </div>
 
+          {/* Form Selector (Tabs) */}
           <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', marginBottom: '32px', flexWrap: 'wrap' }}>
             <button 
               type="button" 
@@ -139,9 +118,9 @@ function PublicPage() {
           </div>
 
           {activeTab === 'colleague' ? (
-            <FeedbackForm onSubmit={() => handleFormSubmit('colleague')} isCompleted={submittedForms.colleague} />
+            <FeedbackForm onSubmit={loadFeedbacks} />
           ) : (
-            <WorkConditionsForm onSubmit={() => handleFormSubmit('conditions')} isCompleted={submittedForms.conditions} />
+            <WorkConditionsForm onSubmit={loadFeedbacks} />
           )}
         </section>
 

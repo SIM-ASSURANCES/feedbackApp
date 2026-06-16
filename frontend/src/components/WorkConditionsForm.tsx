@@ -9,10 +9,9 @@ interface EmployeeOption {
 
 interface WorkConditionsFormProps {
   onSubmit?: () => void;
-  isCompleted?: boolean;
 }
 
-function WorkConditionsForm({ onSubmit, isCompleted }: WorkConditionsFormProps) {
+function WorkConditionsForm({ onSubmit }: WorkConditionsFormProps) {
   const [recipientId, setRecipientId] = useState('');
   const [participantId, setParticipantId] = useState('');
   const [step, setStep] = useState(1);
@@ -272,12 +271,7 @@ function WorkConditionsForm({ onSubmit, isCompleted }: WorkConditionsFormProps) 
   };
 
   return (
-    <form onSubmit={handleSubmit} className="form-glass">
-      {isCompleted && (
-        <p className="message message-info">
-          Merci ! Vous avez déjà soumis ce formulaire. Pour un retour complet, pensez à remplir le formulaire collaborateur à côté.
-        </p>
-      )}
+    <form onSubmit={handleSubmit} className="form-glass" style={{ maxWidth: '550px' }}>
       {message && <p className={`message message-${messageType}`}>{message}</p>}
 
       {/* Progress Stepper */}

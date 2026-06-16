@@ -10,10 +10,9 @@ interface EmployeeOption {
 
 interface Props {
   onSubmit: () => void;
-  isCompleted?: boolean;
 }
 
-function FeedbackForm({ onSubmit, isCompleted }: Props) {
+function FeedbackForm({ onSubmit }: Props) {
   const [recipientId, setRecipientId] = useState('');
   
   // Critères
@@ -133,11 +132,6 @@ function FeedbackForm({ onSubmit, isCompleted }: Props) {
 
   return (
     <form onSubmit={handleSubmit} className="form-glass">
-      {isCompleted && (
-        <p className="message message-info">
-          Merci ! Vous avez déjà soumis ce formulaire. Pour un retour complet, pensez à remplir le second formulaire à côté.
-        </p>
-      )}
       {message && <p className={`message message-${messageType}`}>{message}</p>}
 
       <div className="form-group">

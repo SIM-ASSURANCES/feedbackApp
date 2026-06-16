@@ -201,7 +201,7 @@ function AdminDashboard() {
                       </div>
                       <div style={{ background: 'rgba(255, 59, 48, 0.08)', border: '1.5px solid rgba(255, 59, 48, 0.15)', padding: '8px 4px', borderRadius: '12px' }}>
                         <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#FF3B30' }}>{emp.negative_feedbacks}</div>
-                          <div style={{ color: '#FF3B30', fontSize: '0.75rem', fontWeight: 600, marginTop: '4px' }}>Points d'amélioration</div>
+                        <div style={{ color: '#FF3B30', fontSize: '0.75rem', fontWeight: 600, marginTop: '4px' }}>Négatifs</div>
                       </div>
                     </div>
                   </div>
