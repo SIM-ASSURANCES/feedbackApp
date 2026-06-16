@@ -1,6 +1,6 @@
 services:
   feedback-backend:
-    image: ghcr.io/sim-assurances/feedback-backend:v0
+    image: ghcr.io/sim-assurances/feedback-backend:v1
     environment:
       NODE_ENV: production
       PORT: 3001
@@ -8,6 +8,8 @@ services:
       JWT_SECRET: d72be9b31a835ef7549d35946754bcdd84eee8bd7155f33880c137bc9368367e9b6ad8b2e251d76448e3fedb40e5450b263cd28c4f9216eeb3625411cf646da2
       JWT_EXPIRES_IN: 24h
       CORS_ORIGIN: https://feedback.mysimassurances.com
+      ADMIN_EMAIL: admin@feedback.mysimassurances.com
+      ADMIN_PASSWORD: Admin123
     networks:
       - dokploy-network
     restart: unless-stopped
