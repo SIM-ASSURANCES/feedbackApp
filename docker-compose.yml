@@ -1,6 +1,6 @@
 services:
   feedback-backend:
-    image: ghcr.io/sim-assurances/feedback-backend:v1
+    image: ghcr.io/sim-assurances/feedback-backend:v2
     environment:
       NODE_ENV: production
       PORT: 3001
@@ -15,7 +15,7 @@ services:
     restart: unless-stopped
 
   feedback-frontend:
-    image: ghcr.io/sim-assurances/feedback-frontend:v1
+    image: ghcr.io/sim-assurances/feedback-frontend:v2
     depends_on:
       - feedback-backend
     networks:
