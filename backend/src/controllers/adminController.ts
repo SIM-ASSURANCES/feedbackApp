@@ -36,6 +36,15 @@ export async function moderateFeedback(req: Request, res: Response) {
   return res.json({ message: 'Feedback moderated' });
 }
 
+export async function deleteEmployee(req: Request, res: Response) {
+  const { id } = req.params;
+  const result = await query('DELETE FROM employees WHERE id = $1 AND role = $2', [id, 'user']);
+  if (result.rowCount === 0) {
+    return res.status(404).json({ message: 'Employee not found' });
+  }
+  return res.json({ message: 'Employee deleted' });
+}
+
 export async function getEmployeeStats(_req: Request, res: Response) {
   const result = await query(`
     SELECT

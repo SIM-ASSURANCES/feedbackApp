@@ -40,6 +40,51 @@ async function ensureSchema() {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS form_questions (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      form_type VARCHAR(20) NOT NULL,
+      question_key VARCHAR(50) NOT NULL,
+      label TEXT NOT NULL,
+      is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      is_required BOOLEAN NOT NULL DEFAULT FALSE,
+      display_order INTEGER NOT NULL DEFAULT 0,
+      UNIQUE(form_type, question_key)
+    )
+  `);
+}
+
+const DEFAULT_FORM_QUESTIONS: Array<{ formType: string; questionKey: string; label: string; isRequired: boolean; order: number }> = [
+  { formType: 'colleague', questionKey: 'workQuality', label: "💼 Comment évaluez-vous la qualité de votre travail avec ce collaborateur ?", isRequired: false, order: 1 },
+  { formType: 'colleague', questionKey: 'communication', label: "🗣️ Cette personne communique-t-elle efficacement ?", isRequired: false, order: 2 },
+  { formType: 'colleague', questionKey: 'teamwork', label: "🤝 Cette personne favorise-t-elle un bon esprit d'équipe ?", isRequired: false, order: 3 },
+  { formType: 'colleague', questionKey: 'atmosphere', label: "✨ Cette personne contribue-t-elle à une bonne ambiance au travail ?", isRequired: false, order: 4 },
+  { formType: 'colleague', questionKey: 'cooperation', label: "🙋 Cette personne est-elle disponible et coopérative ?", isRequired: false, order: 5 },
+  { formType: 'colleague', questionKey: 'deadlines', label: "⏳ Cette personne respecte-t-elle les délais d'engagements ?", isRequired: false, order: 6 },
+  { formType: 'colleague', questionKey: 'globalRating', label: "🎯 Globalement, comment évaluez-vous ce collaborateur ?", isRequired: true, order: 7 },
+  { formType: 'conditions', questionKey: 'q1', label: "🛠️ Tu disposes des outils nécessaires pour bien travailler ?", isRequired: false, order: 1 },
+  { formType: 'conditions', questionKey: 'q2', label: "⚖️ Ta charge de travail est raisonnable ?", isRequired: false, order: 2 },
+  { formType: 'conditions', questionKey: 'q3', label: "🏢 Ton environnement de travail est satisfaisant ?", isRequired: false, order: 3 },
+  { formType: 'conditions', questionKey: 'q4', label: "📢 Les objectifs et consignes sont clairement communiqués ?", isRequired: false, order: 4 },
+  { formType: 'conditions', questionKey: 'q5', label: "👂 Tu te sens écouté(e) lorsque tu exprimes une préoccupation ?", isRequired: false, order: 5 },
+  { formType: 'conditions', questionKey: 'q6', label: "🗣️ La communication interne est efficace ?", isRequired: false, order: 6 },
+  { formType: 'conditions', questionKey: 'q7', label: "🚀 Tu te sens motivé(e) et reconnu(e) dans ton travail ?", isRequired: false, order: 7 },
+  { formType: 'conditions', questionKey: 'q8', label: "🎭 L'ambiance au sein de l'équipe est ?", isRequired: false, order: 8 },
+  { formType: 'conditions', questionKey: 'q9', label: "📈 Tu vois des perspectives d'évolution pour toi ici ?", isRequired: false, order: 9 },
+  { formType: 'conditions', questionKey: 'q10', label: "💖 Globalement tu es satisfait(e) de travailler ici ?", isRequired: true, order: 10 },
+  { formType: 'conditions', questionKey: 'q11', label: "💌 Tu recommanderais SIM Assurances comme lieu de travail ?", isRequired: false, order: 11 }
+];
+
+async function ensureFormQuestions() {
+  for (const q of DEFAULT_FORM_QUESTIONS) {
+    await query(
+      `INSERT INTO form_questions(form_type, question_key, label, is_required, display_order)
+       VALUES($1, $2, $3, $4, $5)
+       ON CONFLICT (form_type, question_key) DO NOTHING`,
+      [q.formType, q.questionKey, q.label, q.isRequired, q.order]
+    );
+  }
 }
 
 async function ensureAdmin() {
@@ -65,4 +110,5 @@ async function ensureAdmin() {
 export async function bootstrap() {
   await ensureSchema();
   await ensureAdmin();
+  await ensureFormQuestions();
 }

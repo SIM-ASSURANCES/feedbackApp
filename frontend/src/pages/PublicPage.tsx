@@ -10,6 +10,8 @@ import api from '../services/api';
 function PublicPage() {
   const [feedbacks, setFeedbacks] = useState<Array<{ id: string; content: string; submitted_at: string; recipient_name: string; rating?: number }>>([]);
   const [activeTab, setActiveTab] = useState<'colleague' | 'conditions'>('colleague');
+  const [hasSubmittedColleague, setHasSubmittedColleague] = useState(false);
+  const [hasSubmittedConditions, setHasSubmittedConditions] = useState(false);
   const navigate = useNavigate();
   const isAuthenticated = !!localStorage.getItem('feedback_token');
 
@@ -32,8 +34,26 @@ function PublicPage() {
     return () => clearInterval(intervalId);
   }, []);
 
+  function handleColleagueSubmit() {
+    loadFeedbacks();
+    setHasSubmittedColleague(true);
+    if (!hasSubmittedConditions) {
+      setActiveTab('conditions');
+      setTimeout(() => document.querySelector('form')?.scrollIntoView({ behavior: 'smooth' }), 100);
+    }
+  }
+
+  function handleConditionsSubmit() {
+    loadFeedbacks();
+    setHasSubmittedConditions(true);
+    if (!hasSubmittedColleague) {
+      setActiveTab('colleague');
+      setTimeout(() => document.querySelector('form')?.scrollIntoView({ behavior: 'smooth' }), 100);
+    }
+  }
+
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #004B9C 0%, #003d80 35%, #51AEE2 65%, #004B9C 100%)' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--color-bg)' }}>
       <Header isAuthenticated={isAuthenticated} onLogout={() => {
         localStorage.removeItem('feedback_token');
         localStorage.removeItem('feedback_role');
@@ -71,8 +91,8 @@ function PublicPage() {
         {/* Feedback Form */}
         <section>
           <div style={{ marginBottom: '24px', textAlign: 'center' }}>
-            <h2 style={{ color: 'white', fontSize: '2rem', fontWeight: 800, marginBottom: '8px' }}>Soumettre un feedback</h2>
-            <p style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: '1.1rem', margin: '0 0 24px 0' }}>
+            <h2 style={{ color: 'var(--color-primary-dark)', fontSize: '2rem', fontWeight: 800, marginBottom: '8px' }}>Soumettre un feedback</h2>
+            <p style={{ color: '#64748b', fontSize: '1.1rem', margin: '0 0 24px 0' }}>
               {activeTab === 'colleague' 
                 ? 'Partagez votre avis de façon constructive sur la collaboration avec vos collègues' 
                 : 'Évaluez anonymement les conditions de travail au sein de SIM Assurances'}
@@ -91,10 +111,10 @@ function PublicPage() {
                 fontSize: '0.95rem',
                 cursor: 'pointer',
                 transition: 'all 0.3s ease',
-                background: activeTab === 'colleague' ? 'white' : 'rgba(255, 255, 255, 0.15)',
-                color: activeTab === 'colleague' ? '#004B9C' : 'white',
-                border: activeTab === 'colleague' ? 'none' : '1.5px solid rgba(255, 255, 255, 0.4)',
-                boxShadow: activeTab === 'colleague' ? '0 4px 15px rgba(0, 0, 0, 0.15)' : 'none'
+                background: activeTab === 'colleague' ? '#004B9C' : 'rgba(0, 75, 156, 0.08)',
+                color: activeTab === 'colleague' ? 'white' : '#004B9C',
+                border: activeTab === 'colleague' ? 'none' : '1.5px solid rgba(0, 75, 156, 0.2)',
+                boxShadow: activeTab === 'colleague' ? '0 4px 15px rgba(0, 75, 156, 0.3)' : 'none'
               }}
             >
               👤 Collaboration entre collègues
@@ -109,10 +129,10 @@ function PublicPage() {
                 fontSize: '0.95rem',
                 cursor: 'pointer',
                 transition: 'all 0.3s ease',
-                background: activeTab === 'conditions' ? 'white' : 'rgba(255, 255, 255, 0.15)',
-                color: activeTab === 'conditions' ? '#004B9C' : 'white',
-                border: activeTab === 'conditions' ? 'none' : '1.5px solid rgba(255, 255, 255, 0.4)',
-                boxShadow: activeTab === 'conditions' ? '0 4px 15px rgba(0, 0, 0, 0.15)' : 'none'
+                background: activeTab === 'conditions' ? '#004B9C' : 'rgba(0, 75, 156, 0.08)',
+                color: activeTab === 'conditions' ? 'white' : '#004B9C',
+                border: activeTab === 'conditions' ? 'none' : '1.5px solid rgba(0, 75, 156, 0.2)',
+                boxShadow: activeTab === 'conditions' ? '0 4px 15px rgba(0, 75, 156, 0.3)' : 'none'
               }}
             >
               🏢 Conditions de travail
@@ -120,17 +140,24 @@ function PublicPage() {
           </div>
 
           {activeTab === 'colleague' ? (
-            <FeedbackForm onSubmit={loadFeedbacks} />
+            <FeedbackForm onSubmit={handleColleagueSubmit} />
           ) : (
-            <WorkConditionsForm onSubmit={loadFeedbacks} />
+            <WorkConditionsForm onSubmit={handleConditionsSubmit} />
+          )}
+
+          {((activeTab === 'conditions' && hasSubmittedColleague && !hasSubmittedConditions) ||
+            (activeTab === 'colleague' && hasSubmittedConditions && !hasSubmittedColleague)) && (
+            <p style={{ color: '#004B9C', fontWeight: 600, textAlign: 'center', marginTop: '-16px', marginBottom: '32px', fontSize: '0.95rem' }}>
+              Merci ! Il ne vous reste plus que ce second avis à partager 🙏
+            </p>
           )}
         </section>
 
         {/* Comments Section */}
         <section>
           <div style={{ marginBottom: '40px', textAlign: 'center' }}>
-            <h2 style={{ color: 'white', fontSize: '2rem', fontWeight: 800, marginBottom: '10px' }}>Avis sur l'entreprise</h2>
-            <p style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '1rem', margin: 0 }}>Découvrez ce que nos collaborateurs pensent de SIM Assurances</p>
+            <h2 style={{ color: 'var(--color-primary-dark)', fontSize: '2rem', fontWeight: 800, marginBottom: '10px' }}>Avis sur l'entreprise</h2>
+            <p style={{ color: '#64748b', fontSize: '1rem', margin: 0 }}>Découvrez ce que nos collaborateurs pensent de SIM Assurances</p>
           </div>
           {feedbacks.length === 0 ? (
             <div className="card" style={{ textAlign: 'center', padding: '48px' }}>

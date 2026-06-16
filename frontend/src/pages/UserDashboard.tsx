@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
@@ -8,6 +8,8 @@ function UserDashboard() {
   const [feedbacks, setFeedbacks] = useState<Array<{ id: string; content: string; submitted_at: string; rating?: number }>>([]);
   const [userName, setUserName] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const seenFeedbackIdsRef = useRef<Set<string> | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -20,7 +22,20 @@ function UserDashboard() {
 
     function loadData() {
       return Promise.all([
-        api.get('/user/me/feedbacks').then((response) => setFeedbacks(response.data.feedbacks)),
+        api.get('/user/me/feedbacks').then((response) => {
+          const newFeedbacks = response.data.feedbacks;
+          setFeedbacks(newFeedbacks);
+          const currentIds = new Set<string>(newFeedbacks.map((f: { id: string }) => f.id));
+          if (seenFeedbackIdsRef.current === null) {
+            seenFeedbackIdsRef.current = currentIds;
+          } else {
+            const newOnes = newFeedbacks.filter((f: { id: string }) => !seenFeedbackIdsRef.current!.has(f.id));
+            if (newOnes.length > 0) {
+              setUnreadCount((count) => count + newOnes.length);
+            }
+            seenFeedbackIdsRef.current = currentIds;
+          }
+        }),
         api.get('/user/me').then((response) => setUserName(response.data.name)).catch(() => setUserName('Utilisateur'))
       ]);
     }
@@ -38,12 +53,58 @@ function UserDashboard() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #004B9C 0%, #003d80 35%, #51AEE2 65%, #004B9C 100%)' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--color-bg)' }}>
       <Header isAuthenticated={true} onLogout={handleLogout} />
 
       <main style={{ padding: '0 clamp(12px, 4vw, 40px)' }}>
         {/* Hero Section */}
-        <section className="hero" style={{ marginBottom: '50px' }}>
+        <section className="hero" style={{ marginBottom: '50px', position: 'relative' }}>
+          <button
+            onClick={() => {
+              setUnreadCount(0);
+              document.getElementById('user-feedbacks-list')?.scrollIntoView({ behavior: 'smooth' });
+            }}
+            aria-label="Notifications"
+            style={{
+              position: 'absolute',
+              top: '20px',
+              right: '20px',
+              zIndex: 3,
+              background: 'rgba(255, 255, 255, 0.15)',
+              border: '2px solid rgba(255, 255, 255, 0.4)',
+              borderRadius: '50%',
+              width: '48px',
+              height: '48px',
+              fontSize: '1.3rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer'
+            }}
+          >
+            🔔
+            {unreadCount > 0 && (
+              <span style={{
+                position: 'absolute',
+                top: '-6px',
+                right: '-6px',
+                background: '#FF3B30',
+                color: 'white',
+                borderRadius: '50%',
+                minWidth: '22px',
+                height: '22px',
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '0 4px',
+                border: '2px solid var(--color-bg)'
+              }}>
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </button>
           <div className="hero-content">
             <h1>Bienvenue, <span className="highlight-purple">{userName}</span> 👋</h1>
             <p>Découvrez les retours constructifs que vos collègues vous ont partagées</p>
@@ -62,9 +123,9 @@ function UserDashboard() {
         </div>
 
         {/* Feedbacks List */}
-        <section>
-          <h2 style={{ color: 'white', fontSize: '2rem', fontWeight: 800, marginBottom: '10px', textAlign: 'center' }}>Mes retours</h2>
-          <p style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '1rem', marginBottom: '30px', textAlign: 'center' }}>
+        <section id="user-feedbacks-list">
+          <h2 style={{ color: 'var(--color-primary-dark)', fontSize: '2rem', fontWeight: 800, marginBottom: '10px', textAlign: 'center' }}>Mes retours</h2>
+          <p style={{ color: '#64748b', fontSize: '1rem', marginBottom: '30px', textAlign: 'center' }}>
             Seuls les retours qui vous sont destinés s'affichent, sans information sur l'auteur
           </p>
 

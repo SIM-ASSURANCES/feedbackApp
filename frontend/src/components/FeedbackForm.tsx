@@ -1,5 +1,6 @@
 import { useState, useEffect, FormEvent } from 'react';
 import api from '../services/api';
+import { useFormQuestions } from '../hooks/useFormQuestions';
 
 interface EmployeeOption {
   id: string;
@@ -12,7 +13,18 @@ interface Props {
   onSubmit: () => void;
 }
 
+const CRITERIA_DEFAULTS = [
+  { key: 'workQuality', label: '💼 Comment évaluez-vous la qualité de votre travail avec ce collaborateur ?' },
+  { key: 'communication', label: '🗣️ Cette personne communique-t-elle efficacement ?' },
+  { key: 'teamwork', label: '🤝 Cette personne favorise-t-elle un bon esprit d\'équipe ?' },
+  { key: 'atmosphere', label: '✨ Cette personne contribue-t-elle à une bonne ambiance au travail ?' },
+  { key: 'cooperation', label: '🙋 Cette personne est-elle disponible et coopérative ?' },
+  { key: 'deadlines', label: '⏳ Cette personne respecte-t-elle les délais d\'engagements ?' }
+];
+
 function FeedbackForm({ onSubmit }: Props) {
+  const { isActive, getLabel } = useFormQuestions('colleague');
+  const activeCriteria = CRITERIA_DEFAULTS.filter((c) => isActive(c.key));
   const [recipientId, setRecipientId] = useState('');
   
   // Critères
@@ -102,7 +114,7 @@ function FeedbackForm({ onSubmit }: Props) {
     event.preventDefault();
 
     // Validation
-    if (Object.values(scores).some(score => score === 0)) {
+    if (activeCriteria.some((c) => scores[c.key as keyof typeof scores] === 0)) {
       setMessage('Veuillez noter tous les critères avant de valider.');
       setMessageType('error');
       return;
@@ -157,17 +169,10 @@ function FeedbackForm({ onSubmit }: Props) {
         </p>
         
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {[
-            { key: 'workQuality', label: '💼 Comment évaluez-vous la qualité de votre travail avec ce collaborateur ?' },
-            { key: 'communication', label: '🗣️ Cette personne communique-t-elle efficacement ?' },
-            { key: 'teamwork', label: '🤝 Cette personne favorise-t-elle un bon esprit d\'équipe ?' },
-            { key: 'atmosphere', label: '✨ Cette personne contribue-t-elle à une bonne ambiance au travail ?' },
-            { key: 'cooperation', label: '🙋 Cette personne est-elle disponible et coopérative ?' },
-            { key: 'deadlines', label: '⏳ Cette personne respecte-t-elle les délais d\'engagements ?' }
-          ].map(criterion => (
+          {activeCriteria.map(criterion => (
             <div key={criterion.key} className="criterion-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '12px', padding: '20px' }}>
               <span className="criterion-label" style={{ fontSize: '1.05rem', color: '#0f172a', fontWeight: 700, display: 'block', width: '100%', textAlign: 'center' }}>
-                {criterion.label}
+                {getLabel(criterion.key, criterion.label)}
               </span>
               <div style={{ display: 'flex', gap: '10px', fontSize: '2rem', cursor: 'pointer', justifyContent: 'center' }}>
                 {[1, 2, 3, 4, 5].map((star) => (
@@ -258,7 +263,7 @@ function FeedbackForm({ onSubmit }: Props) {
         {/* Global Rating */}
         <div className="criterion-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '16px', marginTop: '24px', padding: '20px' }}>
           <span className="criterion-label" style={{ fontSize: '1.05rem', color: '#0f172a', fontWeight: 700, display: 'block', width: '100%', textAlign: 'center' }}>
-            🎯 Globalement, comment évaluez-vous ce collaborateur ?
+            {getLabel('globalRating', '🎯 Globalement, comment évaluez-vous ce collaborateur ?')}
           </span>
           <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', flexWrap: 'wrap', width: '100%' }}>
             {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (

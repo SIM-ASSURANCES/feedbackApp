@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
@@ -13,6 +13,10 @@ function AdminDashboard() {
   const [expandedFeedbacks, setExpandedFeedbacks] = useState<Record<string, boolean>>({});
   const [adminTab, setAdminTab] = useState<'employees' | 'company'>('employees');
   const [showAddForm, setShowAddForm] = useState(false);
+  const [formQuestions, setFormQuestions] = useState<Array<{ id: string; form_type: string; question_key: string; label: string; is_active: boolean; is_required: boolean; display_order: number }>>([]);
+  const [questionEdits, setQuestionEdits] = useState<Record<string, string>>({});
+  const [unreadCount, setUnreadCount] = useState(0);
+  const seenFeedbackIdsRef = useRef<Set<string> | null>(null);
 
   const toggleExpand = (id: string) => {
     setExpandedFeedbacks((prev) => ({
@@ -42,7 +46,20 @@ function AdminDashboard() {
 
     function loadData() {
       return Promise.all([
-        api.get('/admin/feedbacks').then((response) => setFeedbacks(response.data.feedbacks)),
+        api.get('/admin/feedbacks').then((response) => {
+          const newFeedbacks = response.data.feedbacks;
+          setFeedbacks(newFeedbacks);
+          const currentIds = new Set<string>(newFeedbacks.map((f: { id: string }) => f.id));
+          if (seenFeedbackIdsRef.current === null) {
+            seenFeedbackIdsRef.current = currentIds;
+          } else {
+            const newOnes = newFeedbacks.filter((f: { id: string }) => !seenFeedbackIdsRef.current!.has(f.id));
+            if (newOnes.length > 0) {
+              setUnreadCount((count) => count + newOnes.length);
+            }
+            seenFeedbackIdsRef.current = currentIds;
+          }
+        }),
         api.get('/admin/stats').then((response) => setStats(response.data)),
         api.get('/admin/employee-stats').then((response) => setEmployeeStats(response.data.employeeStats)),
         api.get('/user/me').then((response) => setAdminName(response.data.name)).catch(() => setAdminName('Admin'))
@@ -51,8 +68,37 @@ function AdminDashboard() {
 
     loadData().finally(() => setIsLoading(false));
     const intervalId = setInterval(loadData, 30000);
+
+    api.get('/admin/form-questions').then((response) => setFormQuestions(response.data.questions)).catch(console.error);
+
     return () => clearInterval(intervalId);
   }, [navigate]);
+
+  async function handleToggleQuestionActive(question: { id: string; is_active: boolean; is_required: boolean }) {
+    if (question.is_required) return;
+    try {
+      const response = await api.put(`/admin/form-questions/${question.id}`, { isActive: !question.is_active });
+      setFormQuestions((current) => current.map((item) => (item.id === question.id ? response.data.question : item)));
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour de la question:', error);
+    }
+  }
+
+  async function handleSaveQuestionLabel(questionId: string) {
+    const newLabel = questionEdits[questionId];
+    if (newLabel === undefined || newLabel.trim().length === 0) return;
+    try {
+      const response = await api.put(`/admin/form-questions/${questionId}`, { label: newLabel.trim() });
+      setFormQuestions((current) => current.map((item) => (item.id === questionId ? response.data.question : item)));
+      setQuestionEdits((current) => {
+        const next = { ...current };
+        delete next[questionId];
+        return next;
+      });
+    } catch (error) {
+      console.error('Erreur lors du renommage de la question:', error);
+    }
+  }
 
   async function handleDelete(id: string) {
     if (!window.confirm('Êtes-vous sûr de vouloir supprimer ce retour ?')) return;
@@ -61,6 +107,17 @@ function AdminDashboard() {
       setFeedbacks((current) => current.filter((item) => item.id !== id));
     } catch (error) {
       console.error('Erreur lors de la suppression:', error);
+    }
+  }
+
+  async function handleDeleteEmployee(id: string, name: string) {
+    if (!window.confirm(`Êtes-vous sûr de vouloir supprimer ${name} ? Tous les retours qui lui sont adressés seront également supprimés.`)) return;
+    try {
+      await api.delete(`/admin/employees/${id}`);
+      setEmployeeStats((current) => current.filter((item) => item.id !== id));
+      setFeedbacks((current) => current.filter((item) => item.recipient_id !== id));
+    } catch (error) {
+      console.error('Erreur lors de la suppression du collaborateur:', error);
     }
   }
 
@@ -118,12 +175,58 @@ function AdminDashboard() {
   const filteredEmployeeStats = employeeStats.filter((emp) => !emp.name.toLowerCase().includes('entreprise'));
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #004B9C 0%, #003d80 35%, #51AEE2 65%, #004B9C 100%)' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--color-bg)' }}>
       <Header isAuthenticated={true} onLogout={handleLogout} />
 
       <main style={{ padding: '0 clamp(12px, 4vw, 40px)' }}>
         {/* Hero Section */}
-        <section className="hero" style={{ marginBottom: '50px' }}>
+        <section className="hero" style={{ marginBottom: '50px', position: 'relative' }}>
+          <button
+            onClick={() => {
+              setUnreadCount(0);
+              document.getElementById('admin-feedbacks-list')?.scrollIntoView({ behavior: 'smooth' });
+            }}
+            aria-label="Notifications"
+            style={{
+              position: 'absolute',
+              top: '20px',
+              right: '20px',
+              zIndex: 3,
+              background: 'rgba(255, 255, 255, 0.15)',
+              border: '2px solid rgba(255, 255, 255, 0.4)',
+              borderRadius: '50%',
+              width: '48px',
+              height: '48px',
+              fontSize: '1.3rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer'
+            }}
+          >
+            🔔
+            {unreadCount > 0 && (
+              <span style={{
+                position: 'absolute',
+                top: '-6px',
+                right: '-6px',
+                background: '#FF3B30',
+                color: 'white',
+                borderRadius: '50%',
+                minWidth: '22px',
+                height: '22px',
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '0 4px',
+                border: '2px solid var(--color-bg)'
+              }}>
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </button>
           <div className="hero-content">
             <h1>Bienvenue, <span className="highlight-purple">{adminName || 'Admin'}</span> 👋</h1>
             <p>Tableau de bord Admin — Gérez et modérez tous les retours de la plateforme</p>
@@ -145,6 +248,25 @@ function AdminDashboard() {
               }}
             >
               ＋ Ajouter un collaborateur
+            </button>
+            <button
+              onClick={() => document.getElementById('manage-questions')?.scrollIntoView({ behavior: 'smooth' })}
+              style={{
+                marginTop: '24px',
+                marginLeft: '16px',
+                padding: '16px 40px',
+                fontSize: '1.1rem',
+                fontWeight: 700,
+                color: 'white',
+                background: 'rgba(255, 255, 255, 0.15)',
+                border: '2px solid rgba(255, 255, 255, 0.4)',
+                borderRadius: '50px',
+                cursor: 'pointer',
+                transition: 'all 0.4s ease',
+                letterSpacing: '0.5px'
+              }}
+            >
+              🛠️ Gérer les questions
             </button>
           </div>
         </section>
@@ -174,8 +296,8 @@ function AdminDashboard() {
         {/* Statistiques par employé Section — uniquement visible sur l'onglet Collaborateurs */}
         {!isLoading && adminTab === 'employees' && (
           <section style={{ marginBottom: '40px' }}>
-            <h2 style={{ color: 'white', fontSize: '2rem', fontWeight: 800, marginBottom: '10px', textAlign: 'center' }}>Statistiques par collaborateur</h2>
-            <p style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '1rem', marginBottom: '30px', textAlign: 'center' }}>
+            <h2 style={{ color: 'var(--color-primary-dark)', fontSize: '2rem', fontWeight: 800, marginBottom: '10px', textAlign: 'center' }}>Statistiques par collaborateur</h2>
+            <p style={{ color: '#64748b', fontSize: '1rem', marginBottom: '30px', textAlign: 'center' }}>
               Aperçu des retours reçus par chaque membre de l'équipe
             </p>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
@@ -209,6 +331,23 @@ function AdminDashboard() {
                         <div style={{ color: '#FF3B30', fontSize: '0.75rem', fontWeight: 600, marginTop: '4px' }}>Négatifs</div>
                       </div>
                     </div>
+                    <button
+                      onClick={() => handleDeleteEmployee(emp.id, emp.name)}
+                      className="btn-danger"
+                      style={{
+                        marginTop: '16px',
+                        background: 'rgba(255, 59, 48, 0.1)',
+                        color: '#FF3B30',
+                        border: '1.5px solid #FF3B30',
+                        borderRadius: '8px',
+                        padding: '8px 16px',
+                        fontWeight: 600,
+                        fontSize: '0.85rem',
+                        width: '100%'
+                      }}
+                    >
+                      🗑 Supprimer ce collaborateur
+                    </button>
                   </div>
                 ))
               )}
@@ -216,9 +355,57 @@ function AdminDashboard() {
           </section>
         )}
 
+        {/* Gérer les questions des formulaires */}
+        <section id="manage-questions" style={{ marginBottom: '40px' }}>
+          <h2 style={{ color: 'var(--color-primary-dark)', fontSize: '2rem', fontWeight: 800, marginBottom: '10px', textAlign: 'center' }}>Gérer les questions des formulaires</h2>
+          <p style={{ color: '#64748b', fontSize: '1rem', marginBottom: '30px', textAlign: 'center' }}>
+            Renommez ou désactivez les questions posées aux participants. Les questions marquées "Obligatoire" ne peuvent pas être désactivées.
+          </p>
+
+          {(['colleague', 'conditions'] as const).map((formType) => (
+            <div key={formType} style={{ marginBottom: '24px' }}>
+              <h3 style={{ color: 'var(--color-primary-dark)', fontSize: '1.2rem', fontWeight: 700, marginBottom: '16px' }}>
+                {formType === 'colleague' ? '👤 Formulaire collègue' : '🏢 Formulaire conditions de travail'}
+              </h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {formQuestions
+                  .filter((q) => q.form_type === formType)
+                  .sort((a, b) => a.display_order - b.display_order)
+                  .map((q) => (
+                    <div key={q.id} className="card" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px', padding: '16px 20px' }}>
+                      <input
+                        type="text"
+                        value={questionEdits[q.id] ?? q.label}
+                        onChange={(e) => setQuestionEdits((current) => ({ ...current, [q.id]: e.target.value }))}
+                        style={{ flex: '1 1 280px', padding: '10px 14px', borderRadius: '10px', border: '1.5px solid #e2e8f0' }}
+                      />
+                      <button
+                        onClick={() => handleSaveQuestionLabel(q.id)}
+                        disabled={questionEdits[q.id] === undefined || questionEdits[q.id].trim() === q.label}
+                        className="btn-secondary"
+                        style={{ padding: '8px 16px', fontSize: '0.85rem', whiteSpace: 'nowrap' }}
+                      >
+                        Enregistrer
+                      </button>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#64748b', fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
+                        <input
+                          type="checkbox"
+                          checked={q.is_active}
+                          disabled={q.is_required}
+                          onChange={() => handleToggleQuestionActive(q)}
+                        />
+                        {q.is_required ? 'Obligatoire' : (q.is_active ? 'Active' : 'Désactivée')}
+                      </label>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          ))}
+        </section>
+
         {/* Ajouter un collaborateur Section */}
         <section id="add-employee-form" style={{ marginBottom: '40px' }}>
-          <h2 style={{ color: 'white', fontSize: '2rem', fontWeight: 800, marginBottom: '10px', textAlign: 'center' }}>Ajouter un collaborateur</h2>
+          <h2 style={{ color: 'var(--color-primary-dark)', fontSize: '2rem', fontWeight: 800, marginBottom: '10px', textAlign: 'center' }}>Ajouter un collaborateur</h2>
           <form onSubmit={handleRegister} className="form-glass" style={{ margin: '0', maxWidth: '100%' }}>
             {registerMessage && <p className={`message message-${registerMessageType}`}>{registerMessage}</p>}
             <div className="admin-form-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
@@ -246,9 +433,9 @@ function AdminDashboard() {
         </section>
 
         {/* Feedbacks List */}
-        <section>
-          <h2 style={{ color: 'white', fontSize: '2rem', fontWeight: 800, marginBottom: '10px', textAlign: 'center' }}>Tous les retours</h2>
-          <p style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '1rem', marginBottom: '30px', textAlign: 'center' }}>
+        <section id="admin-feedbacks-list">
+          <h2 style={{ color: 'var(--color-primary-dark)', fontSize: '2rem', fontWeight: 800, marginBottom: '10px', textAlign: 'center' }}>Tous les retours</h2>
+          <p style={{ color: '#64748b', fontSize: '1rem', marginBottom: '30px', textAlign: 'center' }}>
             {isLoading ? 'Chargement...' : `${filteredFeedbacks.length} retour(s) dans cette catégorie`}
           </p>
 
@@ -262,10 +449,10 @@ function AdminDashboard() {
                   fontWeight: 600,
                   cursor: 'pointer',
                   transition: 'all 0.3s ease',
-                  background: adminTab === 'employees' ? '#004B9C' : 'rgba(255, 255, 255, 0.15)',
-                  color: 'white',
+                  background: adminTab === 'employees' ? '#004B9C' : 'rgba(0, 75, 156, 0.08)',
+                  color: adminTab === 'employees' ? 'white' : '#004B9C',
                   boxShadow: adminTab === 'employees' ? '0 4px 15px rgba(0, 75, 156, 0.4)' : 'none',
-                  border: adminTab === 'employees' ? '2px solid transparent' : '2px solid rgba(255, 255, 255, 0.3)'
+                  border: adminTab === 'employees' ? '2px solid transparent' : '2px solid rgba(0, 75, 156, 0.2)'
                 }}
               >
                 Avis sur les Collaborateurs
@@ -278,10 +465,10 @@ function AdminDashboard() {
                   fontWeight: 600,
                   cursor: 'pointer',
                   transition: 'all 0.3s ease',
-                  background: adminTab === 'company' ? '#004B9C' : 'rgba(255, 255, 255, 0.15)',
-                  color: 'white',
+                  background: adminTab === 'company' ? '#004B9C' : 'rgba(0, 75, 156, 0.08)',
+                  color: adminTab === 'company' ? 'white' : '#004B9C',
                   boxShadow: adminTab === 'company' ? '0 4px 15px rgba(0, 75, 156, 0.4)' : 'none',
-                  border: adminTab === 'company' ? '2px solid transparent' : '2px solid rgba(255, 255, 255, 0.3)'
+                  border: adminTab === 'company' ? '2px solid transparent' : '2px solid rgba(0, 75, 156, 0.2)'
                 }}
               >
                 Conditions de Travail

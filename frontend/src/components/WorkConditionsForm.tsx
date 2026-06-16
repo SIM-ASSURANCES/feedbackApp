@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
+import { useFormQuestions } from '../hooks/useFormQuestions';
 
 interface EmployeeOption {
   id: string;
@@ -12,6 +13,7 @@ interface WorkConditionsFormProps {
 }
 
 function WorkConditionsForm({ onSubmit }: WorkConditionsFormProps) {
+  const { isActive, getLabel } = useFormQuestions('conditions');
   const [recipientId, setRecipientId] = useState('');
   const [participantId, setParticipantId] = useState('');
   const [step, setStep] = useState(1);
@@ -57,11 +59,11 @@ function WorkConditionsForm({ onSubmit }: WorkConditionsFormProps) {
       });
   }, []);
 
-  // Validation checks for each step
-  const isStep1Valid = q1 !== '' && q2 !== '' && q3 !== null;
-  const isStep2Valid = q4 !== '' && q5 !== '' && q6 !== null;
-  const isStep3Valid = q7 !== null && q8 !== '' && q9 !== '';
-  const isStep4Valid = q10 !== null && q11 !== '';
+  // Validation checks for each step (les questions désactivées par l'admin ne sont pas requises)
+  const isStep1Valid = (!isActive('q1') || q1 !== '') && (!isActive('q2') || q2 !== '') && (!isActive('q3') || q3 !== null);
+  const isStep2Valid = (!isActive('q4') || q4 !== '') && (!isActive('q5') || q5 !== '') && (!isActive('q6') || q6 !== null);
+  const isStep3Valid = (!isActive('q7') || q7 !== null) && (!isActive('q8') || q8 !== '') && (!isActive('q9') || q9 !== '');
+  const isStep4Valid = (!isActive('q10') || q10 !== null) && (!isActive('q11') || q11 !== '');
 
   const handleNext = () => {
     if (step === 1 && isStep1Valid) setStep(2);
@@ -83,101 +85,123 @@ function WorkConditionsForm({ onSubmit }: WorkConditionsFormProps) {
     const generateProse = () => {
       // 1. Outils
       let txtOutils = "";
-      if (q1 === "Oui totalement") {
-        txtOutils = "Je dispose de tous les outils nécessaires pour mener à bien mes missions au quotidien.";
-      } else if (q1 === "Partiellement") {
-        txtOutils = "Les outils de travail mis à disposition répondent en partie à mes besoins.";
-      } else {
-        txtOutils = "Il y a un manque important d'outils adaptés pour travailler efficacement.";
+      if (isActive('q1')) {
+        if (q1 === "Oui totalement") {
+          txtOutils = "Je dispose de tous les outils nécessaires pour mener à bien mes missions au quotidien.";
+        } else if (q1 === "Partiellement") {
+          txtOutils = "Les outils de travail mis à disposition répondent en partie à mes besoins.";
+        } else {
+          txtOutils = "Il y a un manque important d'outils adaptés pour travailler efficacement.";
+        }
       }
 
       // 2. Charge
       let txtCharge = "";
-      if (q2 === "Oui") {
-        txtCharge = "Ma charge de travail reste raisonnable et tout à fait gérable.";
-      } else if (q2 === "Parfois") {
-        txtCharge = "La charge de travail est parfois intense mais reste globalement surmontable.";
-      } else {
-        txtCharge = "La charge de travail est malheureusement excessive au quotidien.";
+      if (isActive('q2')) {
+        if (q2 === "Oui") {
+          txtCharge = "Ma charge de travail reste raisonnable et tout à fait gérable.";
+        } else if (q2 === "Parfois") {
+          txtCharge = "La charge de travail est parfois intense mais reste globalement surmontable.";
+        } else {
+          txtCharge = "La charge de travail est malheureusement excessive au quotidien.";
+        }
       }
 
       // 3. Environnement
       let txtEnv = "";
-      if (q3 === 5) txtEnv = "Les locaux et le cadre physique de travail sont exceptionnels.";
-      else if (q3 === 4) txtEnv = "L'environnement physique de travail est très agréable.";
-      else if (q3 === 3) txtEnv = "Le cadre physique de travail est correct mais mériterait d'être modernisé.";
-      else txtEnv = "L'environnement physique de travail laisse à désirer.";
+      if (isActive('q3')) {
+        if (q3 === 5) txtEnv = "Les locaux et le cadre physique de travail sont exceptionnels.";
+        else if (q3 === 4) txtEnv = "L'environnement physique de travail est très agréable.";
+        else if (q3 === 3) txtEnv = "Le cadre physique de travail est correct mais mériterait d'être modernisé.";
+        else txtEnv = "L'environnement physique de travail laisse à désirer.";
+      }
 
       // 4. Consignes
       let txtConsignes = "";
-      if (q4 === "Toujours") {
-        txtConsignes = "Les objectifs et consignes sont toujours communiqués avec une clarté exemplaire.";
-      } else if (q4 === "Souvent") {
-        txtConsignes = "La communication des objectifs et des consignes est généralement bien structurée.";
-      } else if (q4 === "Rarement") {
-        txtConsignes = "La transmission des consignes manque parfois de clarté.";
-      } else {
-        txtConsignes = "Les consignes et les objectifs sont très confus.";
+      if (isActive('q4')) {
+        if (q4 === "Toujours") {
+          txtConsignes = "Les objectifs et consignes sont toujours communiqués avec une clarté exemplaire.";
+        } else if (q4 === "Souvent") {
+          txtConsignes = "La communication des objectifs et des consignes est généralement bien structurée.";
+        } else if (q4 === "Rarement") {
+          txtConsignes = "La transmission des consignes manque parfois de clarté.";
+        } else {
+          txtConsignes = "Les consignes et les objectifs sont très confus.";
+        }
       }
 
       // 5. Écoute
       let txtEcoute = "";
-      if (q5 === "Oui") {
-        txtEcoute = "Je me sens pleinement écouté(e) et soutenu(e) par la hiérarchie.";
-      } else if (q5 === "Parfois") {
-        txtEcoute = "L'écoute de la part du management est fluctuante selon les situations.";
-      } else {
-        txtEcoute = "Je ne me sens pas écouté(e) face à mes préoccupations.";
+      if (isActive('q5')) {
+        if (q5 === "Oui") {
+          txtEcoute = "Je me sens pleinement écouté(e) et soutenu(e) par la hiérarchie.";
+        } else if (q5 === "Parfois") {
+          txtEcoute = "L'écoute de la part du management est fluctuante selon les situations.";
+        } else {
+          txtEcoute = "Je ne me sens pas écouté(e) face à mes préoccupations.";
+        }
       }
 
       // 6. Comm interne
       let txtComm = "";
-      if (q6 && q6 >= 4) txtComm = "La communication interne est fluide et efficace.";
-      else if (q6 === 3) txtComm = "La communication interne est convenable mais reste perfectible.";
-      else txtComm = "La communication interne est insuffisante.";
+      if (isActive('q6')) {
+        if (q6 && q6 >= 4) txtComm = "La communication interne est fluide et efficace.";
+        else if (q6 === 3) txtComm = "La communication interne est convenable mais reste perfectible.";
+        else txtComm = "La communication interne est insuffisante.";
+      }
 
       // 7. Reconnaissance
       let txtRec = "";
-      if (q7 && q7 >= 4) txtRec = "Je me sens motivé(e) et mon investissement est régulièrement valorisé.";
-      else if (q7 === 3) txtRec = "Ma motivation est stable, bien que la reconnaissance pourrait être plus fréquente.";
-      else txtRec = "Je ressens une baisse de motivation due à un manque de reconnaissance.";
+      if (isActive('q7')) {
+        if (q7 && q7 >= 4) txtRec = "Je me sens motivé(e) et mon investissement est régulièrement valorisé.";
+        else if (q7 === 3) txtRec = "Ma motivation est stable, bien que la reconnaissance pourrait être plus fréquente.";
+        else txtRec = "Je ressens une baisse de motivation due à un manque de reconnaissance.";
+      }
 
       // 8. Ambiance
       let txtAmb = "";
-      if (q8 === "Excellente") {
-        txtAmb = "L'ambiance au sein de l'équipe est excellente, marquée par une grande cohésion.";
-      } else if (q8 === "Bonne") {
-        txtAmb = "Il règne une bonne ambiance de travail et une bonne entente générale.";
-      } else if (q8 === "Moyenne") {
-        txtAmb = "L'ambiance au sein de l'équipe est neutre, avec parfois quelques tensions.";
-      } else {
-        txtAmb = "Les relations au sein de l'équipe sont compliquées.";
+      if (isActive('q8')) {
+        if (q8 === "Excellente") {
+          txtAmb = "L'ambiance au sein de l'équipe est excellente, marquée par une grande cohésion.";
+        } else if (q8 === "Bonne") {
+          txtAmb = "Il règne une bonne ambiance de travail et une bonne entente générale.";
+        } else if (q8 === "Moyenne") {
+          txtAmb = "L'ambiance au sein de l'équipe est neutre, avec parfois quelques tensions.";
+        } else {
+          txtAmb = "Les relations au sein de l'équipe sont compliquées.";
+        }
       }
 
       // 9. Évolution
       let txtEvol = "";
-      if (q9 === "Oui") {
-        txtEvol = "Je perçois de réelles perspectives d'évolution au sein de la structure.";
-      } else if (q9 === "Peut-être") {
-        txtEvol = "Les perspectives d'évolution sont incertaines mais envisageables à l'avenir.";
-      } else {
-        txtEvol = "Je ne vois pas de réelles perspectives d'évolution professionnelle.";
+      if (isActive('q9')) {
+        if (q9 === "Oui") {
+          txtEvol = "Je perçois de réelles perspectives d'évolution au sein de la structure.";
+        } else if (q9 === "Peut-être") {
+          txtEvol = "Les perspectives d'évolution sont incertaines mais envisageables à l'avenir.";
+        } else {
+          txtEvol = "Je ne vois pas de réelles perspectives d'évolution professionnelle.";
+        }
       }
 
       // 10. Satisfaction
       let txtSat = "";
-      if (q10 && q10 >= 4) txtSat = "Travailler ici est une expérience très positive.";
-      else if (q10 === 3) txtSat = "Mon expérience globale de travail est convenable sans être exceptionnelle.";
-      else txtSat = "Je ressens une insatisfaction globale concernant mon travail dans l'entreprise.";
+      if (isActive('q10')) {
+        if (q10 && q10 >= 4) txtSat = "Travailler ici est une expérience très positive.";
+        else if (q10 === 3) txtSat = "Mon expérience globale de travail est convenable sans être exceptionnelle.";
+        else txtSat = "Je ressens une insatisfaction globale concernant mon travail dans l'entreprise.";
+      }
 
       // 11. Recommandation
       let txtRecommand = "";
-      if (q11 === "Oui") {
-        txtRecommand = "Je recommande SIM Assurances comme un excellent employeur.";
-      } else if (q11 === "Peut-être") {
-        txtRecommand = "Je recommanderais l'entreprise avec quelques réserves.";
-      } else {
-        txtRecommand = "Je ne recommanderais pas l'entreprise actuellement.";
+      if (isActive('q11')) {
+        if (q11 === "Oui") {
+          txtRecommand = "Je recommande SIM Assurances comme un excellent employeur.";
+        } else if (q11 === "Peut-être") {
+          txtRecommand = "Je recommanderais l'entreprise avec quelques réserves.";
+        } else {
+          txtRecommand = "Je ne recommanderais pas l'entreprise actuellement.";
+        }
       }
 
       return `${txtOutils} ${txtCharge} ${txtEnv} ${txtConsignes} ${txtEcoute} ${txtComm} ${txtRec} ${txtAmb} ${txtEvol} ${txtSat} ${txtRecommand}`;
@@ -356,50 +380,56 @@ function WorkConditionsForm({ onSubmit }: WorkConditionsFormProps) {
             </h3>
 
             {/* Q1 */}
-            <div className="criterion-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '12px', padding: '20px' }}>
-              <span className="criterion-label" style={{ fontSize: '1rem', color: '#0f172a', fontWeight: 700 }}>
-                🛠️ Tu disposes des outils nécessaires pour bien travailler ?
-              </span>
-              <div className="tags-container" style={{ justifyContent: 'center', borderTop: 'none', padding: 0 }}>
-                {['Oui totalement', 'Partiellement', 'Non'].map((option) => (
-                  <button
-                    type="button"
-                    key={option}
-                    className={`tag-btn ${q1 === option ? 'active' : ''}`}
-                    onClick={() => setQ1(option)}
-                  >
-                    {option}
-                  </button>
-                ))}
+            {isActive('q1') && (
+              <div className="criterion-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '12px', padding: '20px' }}>
+                <span className="criterion-label" style={{ fontSize: '1rem', color: '#0f172a', fontWeight: 700 }}>
+                  {getLabel('q1', '🛠️ Tu disposes des outils nécessaires pour bien travailler ?')}
+                </span>
+                <div className="tags-container" style={{ justifyContent: 'center', borderTop: 'none', padding: 0 }}>
+                  {['Oui totalement', 'Partiellement', 'Non'].map((option) => (
+                    <button
+                      type="button"
+                      key={option}
+                      className={`tag-btn ${q1 === option ? 'active' : ''}`}
+                      onClick={() => setQ1(option)}
+                    >
+                      {option}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Q2 */}
-            <div className="criterion-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '12px', padding: '20px' }}>
-              <span className="criterion-label" style={{ fontSize: '1rem', color: '#0f172a', fontWeight: 700 }}>
-                ⚖️ Ta charge de travail est raisonnable ?
-              </span>
-              <div className="tags-container" style={{ justifyContent: 'center', borderTop: 'none', padding: 0 }}>
-                {['Oui', 'Parfois', 'Non'].map((option) => (
-                  <button
-                    type="button"
-                    key={option}
-                    className={`tag-btn ${q2 === option ? 'active' : ''}`}
-                    onClick={() => setQ2(option)}
-                  >
-                    {option}
-                  </button>
-                ))}
+            {isActive('q2') && (
+              <div className="criterion-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '12px', padding: '20px' }}>
+                <span className="criterion-label" style={{ fontSize: '1rem', color: '#0f172a', fontWeight: 700 }}>
+                  {getLabel('q2', '⚖️ Ta charge de travail est raisonnable ?')}
+                </span>
+                <div className="tags-container" style={{ justifyContent: 'center', borderTop: 'none', padding: 0 }}>
+                  {['Oui', 'Parfois', 'Non'].map((option) => (
+                    <button
+                      type="button"
+                      key={option}
+                      className={`tag-btn ${q2 === option ? 'active' : ''}`}
+                      onClick={() => setQ2(option)}
+                    >
+                      {option}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Q3 */}
-            <div className="criterion-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '12px', padding: '20px' }}>
-              <span className="criterion-label" style={{ fontSize: '1rem', color: '#0f172a', fontWeight: 700 }}>
-                🏢 Ton environnement de travail est satisfaisant ?
-              </span>
-              {renderSlider(q3, setQ3)}
-            </div>
+            {isActive('q3') && (
+              <div className="criterion-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '12px', padding: '20px' }}>
+                <span className="criterion-label" style={{ fontSize: '1rem', color: '#0f172a', fontWeight: 700 }}>
+                  {getLabel('q3', '🏢 Ton environnement de travail est satisfaisant ?')}
+                </span>
+                {renderSlider(q3, setQ3)}
+              </div>
+            )}
           </div>
         )}
 
@@ -410,50 +440,56 @@ function WorkConditionsForm({ onSubmit }: WorkConditionsFormProps) {
             </h3>
 
             {/* Q4 */}
-            <div className="criterion-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '12px', padding: '20px' }}>
-              <span className="criterion-label" style={{ fontSize: '1rem', color: '#0f172a', fontWeight: 700 }}>
-                📢 Les objectifs et consignes sont clairement communiqués ?
-              </span>
-              <div className="tags-container" style={{ justifyContent: 'center', borderTop: 'none', padding: 0 }}>
-                {['Toujours', 'Souvent', 'Rarement', 'Jamais'].map((option) => (
-                  <button
-                    type="button"
-                    key={option}
-                    className={`tag-btn ${q4 === option ? 'active' : ''}`}
-                    onClick={() => setQ4(option)}
-                  >
-                    {option}
-                  </button>
-                ))}
+            {isActive('q4') && (
+              <div className="criterion-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '12px', padding: '20px' }}>
+                <span className="criterion-label" style={{ fontSize: '1rem', color: '#0f172a', fontWeight: 700 }}>
+                  {getLabel('q4', '📢 Les objectifs et consignes sont clairement communiqués ?')}
+                </span>
+                <div className="tags-container" style={{ justifyContent: 'center', borderTop: 'none', padding: 0 }}>
+                  {['Toujours', 'Souvent', 'Rarement', 'Jamais'].map((option) => (
+                    <button
+                      type="button"
+                      key={option}
+                      className={`tag-btn ${q4 === option ? 'active' : ''}`}
+                      onClick={() => setQ4(option)}
+                    >
+                      {option}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Q5 */}
-            <div className="criterion-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '12px', padding: '20px' }}>
-              <span className="criterion-label" style={{ fontSize: '1rem', color: '#0f172a', fontWeight: 700 }}>
-                👂 Tu te sens écouté(e) lorsque tu exprimes une préoccupation ?
-              </span>
-              <div className="tags-container" style={{ justifyContent: 'center', borderTop: 'none', padding: 0 }}>
-                {['Oui', 'Parfois', 'Non'].map((option) => (
-                  <button
-                    type="button"
-                    key={option}
-                    className={`tag-btn ${q5 === option ? 'active' : ''}`}
-                    onClick={() => setQ5(option)}
-                  >
-                    {option}
-                  </button>
-                ))}
+            {isActive('q5') && (
+              <div className="criterion-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '12px', padding: '20px' }}>
+                <span className="criterion-label" style={{ fontSize: '1rem', color: '#0f172a', fontWeight: 700 }}>
+                  {getLabel('q5', '👂 Tu te sens écouté(e) lorsque tu exprimes une préoccupation ?')}
+                </span>
+                <div className="tags-container" style={{ justifyContent: 'center', borderTop: 'none', padding: 0 }}>
+                  {['Oui', 'Parfois', 'Non'].map((option) => (
+                    <button
+                      type="button"
+                      key={option}
+                      className={`tag-btn ${q5 === option ? 'active' : ''}`}
+                      onClick={() => setQ5(option)}
+                    >
+                      {option}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Q6 */}
-            <div className="criterion-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '12px', padding: '20px' }}>
-              <span className="criterion-label" style={{ fontSize: '1rem', color: '#0f172a', fontWeight: 700 }}>
-                🗣️ La communication interne est efficace ?
-              </span>
-              {renderSlider(q6, setQ6)}
-            </div>
+            {isActive('q6') && (
+              <div className="criterion-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '12px', padding: '20px' }}>
+                <span className="criterion-label" style={{ fontSize: '1rem', color: '#0f172a', fontWeight: 700 }}>
+                  {getLabel('q6', '🗣️ La communication interne est efficace ?')}
+                </span>
+                {renderSlider(q6, setQ6)}
+              </div>
+            )}
           </div>
         )}
 
@@ -464,50 +500,56 @@ function WorkConditionsForm({ onSubmit }: WorkConditionsFormProps) {
             </h3>
 
             {/* Q7 */}
-            <div className="criterion-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '12px', padding: '20px' }}>
-              <span className="criterion-label" style={{ fontSize: '1rem', color: '#0f172a', fontWeight: 700 }}>
-                🚀 Tu te sens motivé(e) et reconnu(e) dans ton travail ?
-              </span>
-              {renderSlider(q7, setQ7)}
-            </div>
+            {isActive('q7') && (
+              <div className="criterion-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '12px', padding: '20px' }}>
+                <span className="criterion-label" style={{ fontSize: '1rem', color: '#0f172a', fontWeight: 700 }}>
+                  {getLabel('q7', '🚀 Tu te sens motivé(e) et reconnu(e) dans ton travail ?')}
+                </span>
+                {renderSlider(q7, setQ7)}
+              </div>
+            )}
 
             {/* Q8 */}
-            <div className="criterion-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '12px', padding: '20px' }}>
-              <span className="criterion-label" style={{ fontSize: '1rem', color: '#0f172a', fontWeight: 700 }}>
-                🎭 L'ambiance au sein de l'équipe est ?
-              </span>
-              <div className="tags-container" style={{ justifyContent: 'center', borderTop: 'none', padding: 0 }}>
-                {['Excellente', 'Bonne', 'Moyenne', 'Mauvaise'].map((option) => (
-                  <button
-                    type="button"
-                    key={option}
-                    className={`tag-btn ${q8 === option ? 'active' : ''}`}
-                    onClick={() => setQ8(option)}
-                  >
-                    {option}
-                  </button>
-                ))}
+            {isActive('q8') && (
+              <div className="criterion-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '12px', padding: '20px' }}>
+                <span className="criterion-label" style={{ fontSize: '1rem', color: '#0f172a', fontWeight: 700 }}>
+                  {getLabel('q8', "🎭 L'ambiance au sein de l'équipe est ?")}
+                </span>
+                <div className="tags-container" style={{ justifyContent: 'center', borderTop: 'none', padding: 0 }}>
+                  {['Excellente', 'Bonne', 'Moyenne', 'Mauvaise'].map((option) => (
+                    <button
+                      type="button"
+                      key={option}
+                      className={`tag-btn ${q8 === option ? 'active' : ''}`}
+                      onClick={() => setQ8(option)}
+                    >
+                      {option}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Q9 */}
-            <div className="criterion-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '12px', padding: '20px' }}>
-              <span className="criterion-label" style={{ fontSize: '1rem', color: '#0f172a', fontWeight: 700 }}>
-                📈 Tu vois des perspectives d'évolution pour toi ici ?
-              </span>
-              <div className="tags-container" style={{ justifyContent: 'center', borderTop: 'none', padding: 0 }}>
-                {['Oui', 'Peut-être', 'Non'].map((option) => (
-                  <button
-                    type="button"
-                    key={option}
-                    className={`tag-btn ${q9 === option ? 'active' : ''}`}
-                    onClick={() => setQ9(option)}
-                  >
-                    {option}
-                  </button>
-                ))}
+            {isActive('q9') && (
+              <div className="criterion-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '12px', padding: '20px' }}>
+                <span className="criterion-label" style={{ fontSize: '1rem', color: '#0f172a', fontWeight: 700 }}>
+                  {getLabel('q9', "📈 Tu vois des perspectives d'évolution pour toi ici ?")}
+                </span>
+                <div className="tags-container" style={{ justifyContent: 'center', borderTop: 'none', padding: 0 }}>
+                  {['Oui', 'Peut-être', 'Non'].map((option) => (
+                    <button
+                      type="button"
+                      key={option}
+                      className={`tag-btn ${q9 === option ? 'active' : ''}`}
+                      onClick={() => setQ9(option)}
+                    >
+                      {option}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
 
@@ -520,29 +562,31 @@ function WorkConditionsForm({ onSubmit }: WorkConditionsFormProps) {
             {/* Q10 */}
             <div className="criterion-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '12px', padding: '20px' }}>
               <span className="criterion-label" style={{ fontSize: '1rem', color: '#0f172a', fontWeight: 700 }}>
-                💖 Globalement tu es satisfait(e) de travailler ici ?
+                {getLabel('q10', '💖 Globalement tu es satisfait(e) de travailler ici ?')}
               </span>
               {renderSlider(q10, setQ10)}
             </div>
 
             {/* Q11 */}
-            <div className="criterion-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '12px', padding: '20px' }}>
-              <span className="criterion-label" style={{ fontSize: '1rem', color: '#0f172a', fontWeight: 700 }}>
-                💌 Tu recommanderais SIM Assurances comme lieu de travail ?
-              </span>
-              <div className="tags-container" style={{ justifyContent: 'center', borderTop: 'none', padding: 0 }}>
-                {['Oui', 'Peut-être', 'Non'].map((option) => (
-                  <button
-                    type="button"
-                    key={option}
-                    className={`tag-btn ${q11 === option ? 'active' : ''}`}
-                    onClick={() => setQ11(option)}
-                  >
-                    {option}
-                  </button>
-                ))}
+            {isActive('q11') && (
+              <div className="criterion-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '12px', padding: '20px' }}>
+                <span className="criterion-label" style={{ fontSize: '1rem', color: '#0f172a', fontWeight: 700 }}>
+                  {getLabel('q11', '💌 Tu recommanderais SIM Assurances comme lieu de travail ?')}
+                </span>
+                <div className="tags-container" style={{ justifyContent: 'center', borderTop: 'none', padding: 0 }}>
+                  {['Oui', 'Peut-être', 'Non'].map((option) => (
+                    <button
+                      type="button"
+                      key={option}
+                      className={`tag-btn ${q11 === option ? 'active' : ''}`}
+                      onClick={() => setQ11(option)}
+                    >
+                      {option}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
       </div>
