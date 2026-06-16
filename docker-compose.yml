@@ -1,33 +1,13 @@
 services:
-  feedback-db:
-    image: ghcr.io/sim-assurances/feedback-db:latest
-    environment:
-      POSTGRES_USER: feedback_user
-      POSTGRES_PASSWORD: simas2026
-      POSTGRES_DB: feedback_app
-    volumes:
-      - db_data:/var/lib/postgresql/data
-    networks:
-      - dokploy-network
-    restart: unless-stopped
-    healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U feedback_user -d feedback_app']
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   feedback-backend:
     image: ghcr.io/sim-assurances/feedback-backend:v0
     environment:
       NODE_ENV: production
       PORT: 3001
-      DATABASE_URL: postgresql://feedback_user:simas2026@feedback-db:5432/feedback_app
+      DATABASE_URL: postgresql://postgres:RepensTO@feedbackmysim-feedbacksbdd-u1x6il:5432/feedback
       JWT_SECRET: d72be9b31a835ef7549d35946754bcdd84eee8bd7155f33880c137bc9368367e9b6ad8b2e251d76448e3fedb40e5450b263cd28c4f9216eeb3625411cf646da2
       JWT_EXPIRES_IN: 24h
       CORS_ORIGIN: https://feedback.mysimassurances.com
-    depends_on:
-      feedback-db:
-        condition: service_healthy
     networks:
       - dokploy-network
     restart: unless-stopped
@@ -43,6 +23,3 @@ services:
 networks:
   dokploy-network:
     external: true
-
-volumes:
-  db_data:
