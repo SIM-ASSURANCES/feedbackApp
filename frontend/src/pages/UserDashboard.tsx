@@ -18,10 +18,16 @@ function UserDashboard() {
     }
     setAuthToken(token);
 
-    Promise.all([
-      api.get('/user/me/feedbacks').then((response) => setFeedbacks(response.data.feedbacks)),
-      api.get('/user/me').then((response) => setUserName(response.data.name)).catch(() => setUserName('Utilisateur'))
-    ]).finally(() => setIsLoading(false));
+    function loadData() {
+      return Promise.all([
+        api.get('/user/me/feedbacks').then((response) => setFeedbacks(response.data.feedbacks)),
+        api.get('/user/me').then((response) => setUserName(response.data.name)).catch(() => setUserName('Utilisateur'))
+      ]);
+    }
+
+    loadData().finally(() => setIsLoading(false));
+    const intervalId = setInterval(loadData, 30000);
+    return () => clearInterval(intervalId);
   }, [navigate]);
 
   function handleLogout() {

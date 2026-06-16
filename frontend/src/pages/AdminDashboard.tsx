@@ -40,13 +40,18 @@ function AdminDashboard() {
     }
     setAuthToken(token);
 
-    Promise.all([
-      api.get('/admin/feedbacks').then((response) => setFeedbacks(response.data.feedbacks)),
-      api.get('/admin/stats').then((response) => setStats(response.data)),
-      api.get('/admin/employee-stats').then((response) => setEmployeeStats(response.data.employeeStats)),
-      api.get('/user/me').then((response) => setAdminName(response.data.name)).catch(() => setAdminName('Admin'))
-    ]).catch(console.error)
-      .finally(() => setIsLoading(false));
+    function loadData() {
+      return Promise.all([
+        api.get('/admin/feedbacks').then((response) => setFeedbacks(response.data.feedbacks)),
+        api.get('/admin/stats').then((response) => setStats(response.data)),
+        api.get('/admin/employee-stats').then((response) => setEmployeeStats(response.data.employeeStats)),
+        api.get('/user/me').then((response) => setAdminName(response.data.name)).catch(() => setAdminName('Admin'))
+      ]).catch(console.error);
+    }
+
+    loadData().finally(() => setIsLoading(false));
+    const intervalId = setInterval(loadData, 30000);
+    return () => clearInterval(intervalId);
   }, [navigate]);
 
   async function handleDelete(id: string) {

@@ -28,6 +28,8 @@ function PublicPage() {
 
   useEffect(() => {
     loadFeedbacks();
+    const intervalId = setInterval(loadFeedbacks, 30000);
+    return () => clearInterval(intervalId);
   }, []);
 
   return (
