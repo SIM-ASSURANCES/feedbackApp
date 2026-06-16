@@ -15,7 +15,7 @@ services:
     restart: unless-stopped
 
   feedback-frontend:
-    image: ghcr.io/sim-assurances/feedback-frontend:v0
+    image: ghcr.io/sim-assurances/feedback-frontend:v1
     depends_on:
       - feedback-backend
     networks:
