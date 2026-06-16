@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\HP\\\\Desktop\\\\feedback\\\\backend\" -Force -Recurse | Where-Object { !$_.PSIsContainer } | Select-Object FullName | Head -30)"
+    ]
+  }
+}

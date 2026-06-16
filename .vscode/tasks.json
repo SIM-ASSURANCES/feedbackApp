@@ -1,0 +1,47 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Run createAdmin script",
+			"type": "shell",
+			"command": "powershell -NoProfile -Command \"Set-Location -Path 'C:\\Users\\SIM ASSURANCES\\OneDrive\\Documentos\\Feedback_Simas\\backend'; node .\\scripts\\createAdmin.js\"",
+			"problemMatcher": []
+		},
+		{
+			"label": "Run createAdmin script",
+			"type": "shell",
+			"command": "powershell -NoProfile -Command \"Set-Location -Path \\\"C:\\Users\\SIM ASSURANCES\\OneDrive\\Documentos\\Feedback_Simas\\backend\\\"; node .\\scripts\\createAdmin.js\"",
+			"problemMatcher": []
+		},
+		{
+			"label": "Run createAdmin script",
+			"type": "shell",
+			"command": "cmd.exe /c \"cd /d \"C:\\Users\\SIM ASSURANCES\\OneDrive\\Documentos\\Feedback_Simas\\backend\" && node scripts\\createAdmin.js\"",
+			"problemMatcher": []
+		},
+		{
+			"label": "Run createAdmin script",
+			"type": "shell",
+			"command": "cd 'C:\\Users\\SIM ASSURANCES\\OneDrive\\Documentos\\Feedback_Simas\\backend'; node .\\scripts\\createAdmin.js",
+			"problemMatcher": []
+		},
+		{
+			"label": "Run createAdmin script",
+			"type": "shell",
+			"command": "powershell -NoProfile -Command \"pushd 'C:\\Users\\SIM ASSURANCES\\OneDrive\\Documentos\\Feedback_Simas\\backend'; node .\\scripts\\createAdmin.js; popd\"",
+			"problemMatcher": []
+		},
+		{
+			"label": "Run createAdmin script",
+			"type": "shell",
+			"command": "cd 'C:/Users/SIM ASSURANCES/OneDrive/Documentos/Feedback_Simas/backend'; node .\\scripts\\createAdmin.js",
+			"problemMatcher": []
+		},
+		{
+			"label": "Run createAdmin script",
+			"type": "shell",
+			"command": "node backend/scripts/createAdmin.js",
+			"problemMatcher": []
+		}
+	]
+}

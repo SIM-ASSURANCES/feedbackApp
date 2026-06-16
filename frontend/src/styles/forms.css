@@ -1,0 +1,328 @@
+/* Form Styles */
+.form-glass {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 24px;
+  padding: 48px;
+  box-shadow: 0 25px 50px rgba(10, 22, 40, 0.15);
+  max-width: 500px;
+  margin: 40px auto;
+  position: relative;
+  overflow: hidden;
+}
+
+.form-glass::before {
+  content: '';
+  position: absolute;
+  top: -40%;
+  right: -20%;
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(circle, rgba(81, 174, 226, 0.05) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.form-glass::after {
+  content: '';
+  position: absolute;
+  bottom: -30%;
+  left: -10%;
+  width: 250px;
+  height: 250px;
+  background: radial-gradient(circle, rgba(81, 174, 226, 0.05) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.form-glass h2 {
+  text-align: center;
+  color: var(--color-primary-dark);
+  font-size: 2rem;
+  margin-bottom: 36px;
+  font-weight: 800;
+  position: relative;
+  z-index: 1;
+}
+
+.form-group {
+  margin-bottom: 24px;
+  position: relative;
+  z-index: 1;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 12px;
+  font-weight: 600;
+  color: var(--color-primary-dark);
+  font-size: 0.95rem;
+  transition: color 0.3s ease;
+}
+
+.form-group input:focus ~ label,
+.form-group textarea:focus ~ label {
+  color: var(--color-primary);
+}
+
+.form-group input,
+.form-group textarea,
+.form-group select {
+  width: 100%;
+  padding: 14px 16px;
+  border: 2px solid rgba(81, 174, 226, 0.5);
+  border-radius: 12px;
+  background: rgba(251, 253, 255, 0.9);
+  color: #0f172a;
+  transition: all 0.3s ease;
+  font-size: 0.95rem;
+}
+
+.form-group input::placeholder,
+.form-group textarea::placeholder {
+  color: #475569;
+}
+
+.form-group input:focus,
+.form-group textarea:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  background: white;
+  box-shadow: 0 0 0 4px rgba(0, 75, 156, 0.1), 0 4px 12px rgba(0, 75, 156, 0.2);
+  transform: translateY(-2px);
+}
+
+.form-group textarea {
+  font-family: inherit;
+  resize: vertical;
+  min-height: 120px;
+}
+
+/* Character Counter */
+.form-group small {
+  display: block;
+  margin-top: 8px;
+  font-size: 0.875rem;
+  transition: color 0.3s ease;
+}
+
+.form-group small.valid {
+  color: #34C759;
+}
+
+.form-group small.invalid {
+  color: #FF3B30;
+}
+
+.form-group small.warning {
+  color: #FF9500;
+}
+
+/* Submit Button */
+.btn-primary {
+  width: 100%;
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 100%);
+  color: white;
+  padding: 16px 24px;
+  border: none;
+  border-radius: 50px;
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 8px 20px rgba(81, 174, 226, 0.3);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  position: relative;
+  z-index: 1;
+  margin-top: 10px;
+}
+
+.btn-primary:hover:not(:disabled) {
+  box-shadow: 0 12px 30px rgba(81, 174, 226, 0.5);
+  transform: translateY(-3px);
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.btn-primary:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* Messages */
+.message {
+  padding: 16px 20px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  font-weight: 500;
+  position: relative;
+  z-index: 1;
+  animation: slideDown 0.3s ease;
+}
+
+.message-success {
+  background: rgba(52, 199, 89, 0.1);
+  color: #34C759;
+  border: 1px solid rgba(52, 199, 89, 0.3);
+}
+
+.message-error {
+  background: rgba(255, 59, 48, 0.1);
+  color: #FF3B30;
+  border: 1px solid rgba(255, 59, 48, 0.3);
+}
+
+.message-info {
+  background: rgba(81, 174, 226, 0.1);
+  color: var(--color-secondary);
+  border: 1px solid rgba(81, 174, 226, 0.3);
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Form Links */
+.form-glass p {
+  text-align: center;
+  margin-top: 24px;
+  color: #64748b;
+  font-size: 0.95rem;
+  position: relative;
+  z-index: 1;
+}
+
+.form-glass a {
+  color: var(--color-secondary);
+  font-weight: 600;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.form-glass a:hover {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .form-glass {
+    padding: 32px 24px;
+    margin: 24px 16px;
+  }
+
+  .form-glass h2 {
+    font-size: 1.75rem;
+  }
+
+  .btn-primary {
+    padding: 14px 20px;
+    font-size: 0.9rem;
+  }
+}
+
+.public-forms-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  justify-content: center;
+  align-items: stretch;
+  margin-top: 24px;
+}
+
+.public-form-panel {
+  display: flex;
+  flex-direction: column;
+  width: min(560px, 100%);
+  min-width: 320px;
+  max-width: 560px;
+}
+
+.public-form-panel .public-form-heading {
+  margin-bottom: 16px;
+}
+
+.public-form-panel .form-glass {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.public-form-panel .form-glass > *:last-child {
+  margin-top: auto;
+}
+
+@media (max-width: 980px) {
+  .public-forms-grid {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+.public-forms-grid > div {
+  flex: 1 1 420px;
+  min-width: 320px;
+  max-width: 560px;
+}
+
+.public-form-heading {
+  margin: 0 0 16px 0;
+  color: white;
+  font-size: 1.15rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.public-forms-grid .form-glass {
+  margin: 0;
+}
+
+@media (max-width: 980px) {
+  .public-forms-grid {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+/* Row of action buttons in stepper forms */
+.form-buttons {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 32px;
+  border-top: 1px solid #e2e8f0;
+  padding-top: 24px;
+}
+
+.form-buttons button {
+  flex: 1 1 0% !important;
+  width: auto !important;
+  min-width: 0 !important;
+  height: 46px !important;
+  padding: 0 16px !important;
+  margin: 0 !important;
+  box-sizing: border-box !important;
+}
+
+@media (max-width: 480px) {
+  .form-buttons {
+    gap: 10px;
+  }
+  .form-buttons button {
+    font-size: 0.85rem !important;
+    padding: 0 8px !important;
+  }
+}
