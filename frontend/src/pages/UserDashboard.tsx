@@ -4,12 +4,32 @@ import Header from '../components/Header';
 import Footer from '../components/Footer';
 import api, { setAuthToken } from '../services/api';
 
+interface Synthesis {
+  totalCount: number;
+  averageRating: number;
+  positiveCount: number;
+  neutralCount: number;
+  negativeCount: number;
+  criteria: Array<{ key: string; label: string; average: number; count: number }>;
+  topTags: { positive: string[]; negative: string[] };
+}
+
+const EMPTY_SYNTHESIS: Synthesis = {
+  totalCount: 0,
+  averageRating: 0,
+  positiveCount: 0,
+  neutralCount: 0,
+  negativeCount: 0,
+  criteria: [],
+  topTags: { positive: [], negative: [] }
+};
+
 function UserDashboard() {
-  const [feedbacks, setFeedbacks] = useState<Array<{ id: string; content: string; submitted_at: string; rating?: number }>>([]);
+  const [synthesis, setSynthesis] = useState<Synthesis>(EMPTY_SYNTHESIS);
   const [userName, setUserName] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
-  const seenFeedbackIdsRef = useRef<Set<string> | null>(null);
+  const previousTotalRef = useRef<number | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -22,18 +42,14 @@ function UserDashboard() {
 
     function loadData() {
       return Promise.all([
-        api.get('/user/me/feedbacks').then((response) => {
-          const newFeedbacks = response.data.feedbacks;
-          setFeedbacks(newFeedbacks);
-          const currentIds = new Set<string>(newFeedbacks.map((f: { id: string }) => f.id));
-          if (seenFeedbackIdsRef.current === null) {
-            seenFeedbackIdsRef.current = currentIds;
-          } else {
-            const newOnes = newFeedbacks.filter((f: { id: string }) => !seenFeedbackIdsRef.current!.has(f.id));
-            if (newOnes.length > 0) {
-              setUnreadCount((count) => count + newOnes.length);
-            }
-            seenFeedbackIdsRef.current = currentIds;
+        api.get('/user/me/feedbacks/synthesis').then((response) => {
+          const data = response.data as Synthesis;
+          setSynthesis(data);
+          if (previousTotalRef.current === null) {
+            previousTotalRef.current = data.totalCount;
+          } else if (data.totalCount > previousTotalRef.current) {
+            setUnreadCount((count) => count + (data.totalCount - previousTotalRef.current!));
+            previousTotalRef.current = data.totalCount;
           }
         }),
         api.get('/user/me').then((response) => setUserName(response.data.name)).catch(() => setUserName('Utilisateur'))
@@ -52,6 +68,12 @@ function UserDashboard() {
     navigate('/');
   }
 
+  const breakdown = [
+    { label: 'Positifs', value: synthesis.positiveCount, color: '#34C759' },
+    { label: 'Neutres', value: synthesis.neutralCount, color: '#FF9500' },
+    { label: 'Négatifs', value: synthesis.negativeCount, color: '#FF3B30' }
+  ];
+
   return (
     <div style={{ minHeight: '100vh', background: 'var(--color-bg)' }}>
       <Header isAuthenticated={true} onLogout={handleLogout} />
@@ -62,7 +84,7 @@ function UserDashboard() {
           <button
             onClick={() => {
               setUnreadCount(0);
-              document.getElementById('user-feedbacks-list')?.scrollIntoView({ behavior: 'smooth' });
+              document.getElementById('user-synthesis')?.scrollIntoView({ behavior: 'smooth' });
             }}
             aria-label="Notifications"
             style={{
@@ -107,7 +129,7 @@ function UserDashboard() {
           </button>
           <div className="hero-content">
             <h1>Bienvenue, <span className="highlight-purple">{userName}</span> 👋</h1>
-            <p>Découvrez les retours constructifs que vos collègues vous ont partagées</p>
+            <p>Découvrez la synthèse des retours constructifs que vos collègues vous ont partagés</p>
           </div>
         </section>
 
@@ -115,64 +137,86 @@ function UserDashboard() {
         <div className="card" style={{ marginBottom: '40px', textAlign: 'center' }}>
           <h3 style={{ margin: '0 0 10px 0', color: '#51AEE2' }}>Retours reçus</h3>
           <p style={{ fontSize: '2.5rem', fontWeight: 800, color: '#0A1628', margin: '0' }}>
-            {isLoading ? '...' : feedbacks.length}
+            {isLoading ? '...' : synthesis.totalCount}
           </p>
           <small style={{ color: '#94a3b8' }}>
-            {feedbacks.length === 0 ? 'Aucun retour pour le moment' : 'Continuez à vous améliorer !'}
+            {synthesis.totalCount === 0 ? 'Aucun retour pour le moment' : `Note moyenne : ${synthesis.averageRating.toFixed(1)}/10`}
           </small>
         </div>
 
-        {/* Feedbacks List */}
-        <section id="user-feedbacks-list">
-          <h2 style={{ color: 'var(--color-primary-dark)', fontSize: '2rem', fontWeight: 800, marginBottom: '10px', textAlign: 'center' }}>Mes retours</h2>
+        {/* Synthesis */}
+        <section id="user-synthesis" style={{ marginBottom: '60px' }}>
+          <h2 style={{ color: 'var(--color-primary-dark)', fontSize: '2rem', fontWeight: 800, marginBottom: '10px', textAlign: 'center' }}>Synthèse de mes retours</h2>
           <p style={{ color: '#64748b', fontSize: '1rem', marginBottom: '30px', textAlign: 'center' }}>
-            Seuls les retours qui vous sont destinés s'affichent, sans information sur l'auteur
+            Vue d'ensemble anonymisée : aucun commentaire individuel ni auteur n'est jamais affiché ici
           </p>
 
           {isLoading ? (
             <div className="card" style={{ textAlign: 'center', padding: '48px' }}>
               <p>Chargement...</p>
             </div>
-          ) : feedbacks.length === 0 ? (
+          ) : synthesis.totalCount === 0 ? (
             <div className="card" style={{ textAlign: 'center', padding: '48px' }}>
               <p style={{ fontSize: '1.1rem', color: '#94a3b8' }}>
                 Vous n'avez pas encore de retours. Invitez vos collègues à partager leurs avis !
               </p>
             </div>
           ) : (
-            <div className="card-grid">
-              {feedbacks.map((feedback) => (
-                <div key={feedback.id} className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                  <div>
-                    <p style={{ color: '#0f172a', fontSize: '1rem', lineHeight: '1.6', margin: '0 0 16px 0' }}>
-                      "{feedback.content}"
-                    </p>
-                    {feedback.rating && feedback.rating > 0 ? (
-                      <div style={{ color: '#FF9500', fontSize: '1.1rem', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <span>
-                          {'★'.repeat(Math.min(feedback.rating, feedback.rating > 5 ? 10 : 5))}
-                          {'☆'.repeat(Math.max(0, (feedback.rating > 5 ? 10 : 5) - feedback.rating))}
-                        </span>
-                        <span style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 600 }}>
-                          ({feedback.rating}/{feedback.rating > 5 ? 10 : 5})
-                        </span>
-                      </div>
-                    ) : null}
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '30px', maxWidth: '500px', margin: '0 auto 30px' }}>
+                {breakdown.map((b) => (
+                  <div key={b.label} style={{ background: `${b.color}14`, border: `1.5px solid ${b.color}26`, padding: '16px 8px', borderRadius: '14px', textAlign: 'center' }}>
+                    <div style={{ fontSize: '1.4rem', fontWeight: 800, color: b.color }}>{b.value}</div>
+                    <div style={{ color: b.color, fontSize: '0.8rem', fontWeight: 600, marginTop: '4px' }}>{b.label}</div>
                   </div>
-                  <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '16px', marginTop: 'auto' }}>
-                    <small style={{ color: '#94a3b8' }}>
-                      {new Date(feedback.submitted_at).toLocaleDateString('fr-FR', { 
-                        year: 'numeric', 
-                        month: 'long', 
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
-                    </small>
+                ))}
+              </div>
+
+              {synthesis.criteria.length > 0 && (
+                <div className="card" style={{ maxWidth: '700px', margin: '0 auto 24px', padding: '28px' }}>
+                  <h3 style={{ margin: '0 0 20px 0', color: 'var(--color-primary-dark)', fontSize: '1.15rem' }}>Moyenne par critère</h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    {synthesis.criteria.map((c) => (
+                      <div key={c.key}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '0.9rem' }}>
+                          <span style={{ color: '#0f172a', fontWeight: 600 }}>{c.label}</span>
+                          <span style={{ color: '#64748b' }}>{c.average.toFixed(1)}/5 ({c.count})</span>
+                        </div>
+                        <div style={{ background: '#e2e8f0', borderRadius: '8px', height: '10px', overflow: 'hidden' }}>
+                          <div style={{ width: `${(c.average / 5) * 100}%`, background: 'linear-gradient(90deg, #004B9C 0%, #51AEE2 100%)', height: '100%', borderRadius: '8px' }} />
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              ))}
-            </div>
+              )}
+
+              {(synthesis.topTags.positive.length > 0 || synthesis.topTags.negative.length > 0) && (
+                <div className="card" style={{ maxWidth: '700px', margin: '0 auto', padding: '28px' }}>
+                  <h3 style={{ margin: '0 0 16px 0', color: 'var(--color-primary-dark)', fontSize: '1.15rem' }}>Points fréquemment relevés</h3>
+                  {synthesis.topTags.positive.length > 0 && (
+                    <div style={{ marginBottom: '16px' }}>
+                      <p style={{ color: '#34C759', fontWeight: 600, fontSize: '0.85rem', marginBottom: '10px' }}>👍 Points forts</p>
+                      <div className="tags-container" style={{ borderTop: 'none', padding: 0 }}>
+                        {synthesis.topTags.positive.map((tag) => (
+                          <span key={tag} className="tag-btn active">{tag}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {synthesis.topTags.negative.length > 0 && (
+                    <div>
+                      <p style={{ color: '#FF3B30', fontWeight: 600, fontSize: '0.85rem', marginBottom: '10px' }}>⚠️ Axes d'amélioration</p>
+                      <div className="tags-container" style={{ borderTop: 'none', padding: 0 }}>
+                        {synthesis.topTags.negative.map((tag) => (
+                          <span key={tag} className="tag-btn">{tag}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
           )}
         </section>
       </main>
@@ -182,4 +226,3 @@ function UserDashboard() {
 }
 
 export default UserDashboard;
-

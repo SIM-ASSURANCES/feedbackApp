@@ -22,43 +22,63 @@ const CRITERIA_DEFAULTS = [
   { key: 'deadlines', label: '⏳ Cette personne respecte-t-elle les délais d\'engagements ?' }
 ];
 
+const DEFAULT_KEYS = new Set(CRITERIA_DEFAULTS.map((c) => c.key).concat('globalRating'));
+
+const TAGS_DEFINITIONS: Record<string, { pos: string[], neu: string[], neg: string[] }> = {
+  workQuality: {
+    pos: ['Très efficace', 'Fluide', 'Productif', 'Complémentaire'],
+    neu: ['Correct', 'Standard', 'À améliorer', 'Parfois lent'],
+    neg: ['Difficile', 'Inefficace', 'Désorganisé', 'Pas de suivi']
+  },
+  communication: {
+    pos: ['Clair', 'Réactif', 'À l\'écoute', 'Transparent'],
+    neu: ['Standard', 'Assez discret', 'Communication minimale'],
+    neg: ['Trop direct', 'Fermé', 'Réponses lentes', 'Peu clair']
+  },
+  teamwork: {
+    pos: ['Solidaire', 'Fédérateur', 'Bon soutien', 'Encourageant'],
+    neu: ['Indifférent', 'Fait sa part', 'Peu participatif'],
+    neg: ['Individualiste', 'Divise l\'équipe', 'Pas d\'entraide']
+  },
+  atmosphere: {
+    pos: ['Souriant', 'Bienveillant', 'Positif', 'Humoristique'],
+    neu: ['Neutre', 'Calme', 'Très réservé'],
+    neg: ['Humeur changeante', 'Créateur de tensions', 'Froid/Distant']
+  },
+  cooperation: {
+    pos: ['Toujours disponible', 'Très coopératif', 'Serviable', 'Flexible'],
+    neu: ['Disponible parfois', 'Coopère au besoin'],
+    neg: ['Indisponible', 'Peu coopératif', 'Refuse d\'aider']
+  },
+  deadlines: {
+    pos: ['Toujours à l\'heure', 'Respecte les échéances', 'Très fiable', 'Organisé'],
+    neu: ['Délais parfois dépassés', 'Respecte l\'essentiel'],
+    neg: ['Souvent en retard', 'Ne respecte pas ses engagements', 'Ralentit le travail']
+  }
+};
+
 function FeedbackForm({ onSubmit }: Props) {
-  const { isActive, getLabel } = useFormQuestions('colleague');
-  const activeCriteria = CRITERIA_DEFAULTS.filter((c) => isActive(c.key));
+  const { questions, isActive, getLabel } = useFormQuestions('colleague');
+
+  const customCriteria = questions
+    .filter((q) => q.is_active && !DEFAULT_KEYS.has(q.question_key))
+    .sort((a, b) => a.display_order - b.display_order)
+    .map((q) => ({ key: q.question_key, label: q.label }));
+
+  const activeCriteria = [
+    ...CRITERIA_DEFAULTS.filter((c) => isActive(c.key)),
+    ...customCriteria
+  ];
+
   const [recipientId, setRecipientId] = useState('');
-  
-  // Critères
-  const [scores, setScores] = useState({
-    workQuality: 0,
-    communication: 0,
-    teamwork: 0,
-    atmosphere: 0,
-    cooperation: 0,
-    deadlines: 0
-  });
+  const [scores, setScores] = useState<Record<string, number>>({});
   const [globalRating, setGlobalRating] = useState<number>(0);
-  const [selectedTags, setSelectedTags] = useState<Record<string, string[]>>({
-    workQuality: [],
-    communication: [],
-    teamwork: [],
-    atmosphere: [],
-    cooperation: [],
-    deadlines: []
-  });
+  const [selectedTags, setSelectedTags] = useState<Record<string, string[]>>({});
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState<'success' | 'error' | 'info'>('info');
   const [employees, setEmployees] = useState<EmployeeOption[]>([]);
-  const [participantId, setParticipantId] = useState('');
 
   useEffect(() => {
-    // Gérer l'identifiant de participant anonyme
-    let pid = localStorage.getItem('feedback_participant_id');
-    if (!pid) {
-      pid = crypto.randomUUID();
-      localStorage.setItem('feedback_participant_id', pid);
-    }
-    setParticipantId(pid);
-
     api
       .get('/employees')
       .then((response) => {
@@ -74,15 +94,15 @@ function FeedbackForm({ onSubmit }: Props) {
       .catch(() => setEmployees([]));
   }, []);
 
-  function generateComment(s: typeof scores, t: typeof selectedTags, global: number) {
+  function generateComment(s: Record<string, number>, t: Record<string, string[]>, global: number) {
     const getPhrase = (score: number, key: string, pos: string, neu: string, neg: string) => {
-      if (score === 0) return '';
+      if (!score) return '';
       let basePhrase = '';
       if (score >= 4) basePhrase = pos;
       else if (score === 3) basePhrase = neu;
       else basePhrase = neg;
 
-      const tags = t[key as keyof typeof t];
+      const tags = t[key];
       if (tags && tags.length > 0) {
         basePhrase += ` Points notés : ${tags.join(', ')}.`;
       }
@@ -96,6 +116,15 @@ function FeedbackForm({ onSubmit }: Props) {
     const pCoop = getPhrase(s.cooperation, 'cooperation', "La disponibilité et l'esprit de coopération de ce collaborateur sont exemplaires.", "La disponibilité reste correcte selon les besoins du service.", "Une plus grande disponibilité et volonté d'entraide seraient appréciables.");
     const pDeadlines = getPhrase(s.deadlines, 'deadlines', "Les engagements et délais fixés sont rigoureusement respectés par ce collaborateur.", "Les échéances sont généralement tenues.", "Le non-respect régulier des délais d'engagement pose des difficultés d'organisation.");
 
+    const customPhrases = customCriteria
+      .map((c) => {
+        const score = s[c.key];
+        if (!score) return '';
+        return `Concernant « ${c.label.replace(/^[^\wÀ-ÿ]+/, '').trim()} », la note attribuée est de ${score}/5.`;
+      })
+      .filter(Boolean)
+      .join(' ');
+
     let globalPhrase = "";
     if (global >= 9) {
       globalPhrase = "L'évaluation globale de ce collaborateur est extrêmement positive, témoignant d'une collaboration de très haut niveau.";
@@ -107,14 +136,14 @@ function FeedbackForm({ onSubmit }: Props) {
       globalPhrase = "L'évaluation globale reflète d'importantes marges de progression dans la relation professionnelle.";
     }
 
-    return `${pQuality} ${pComm} ${pTeamwork} ${pAtmosphere} ${pCoop} ${pDeadlines} ${globalPhrase}`.trim();
+    return `${pQuality} ${pComm} ${pTeamwork} ${pAtmosphere} ${pCoop} ${pDeadlines} ${customPhrases} ${globalPhrase}`.trim().replace(/\s+/g, ' ');
   }
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
 
     // Validation
-    if (activeCriteria.some((c) => scores[c.key as keyof typeof scores] === 0)) {
+    if (activeCriteria.some((c) => !scores[c.key])) {
       setMessage('Veuillez noter tous les critères avant de valider.');
       setMessageType('error');
       return;
@@ -126,18 +155,28 @@ function FeedbackForm({ onSubmit }: Props) {
     }
 
     const generatedContent = generateComment(scores, selectedTags, globalRating);
+    const criteria: Record<string, { score: number; tags?: string[] }> = {};
+    for (const c of activeCriteria) {
+      criteria[c.key] = { score: scores[c.key], tags: selectedTags[c.key] || [] };
+    }
 
     try {
-      await api.post('/feedbacks/submit', { recipientId, content: generatedContent, rating: globalRating, participantId });
+      await api.post('/feedbacks/submit', {
+        recipientId,
+        content: generatedContent,
+        rating: globalRating,
+        feedbackType: 'colleague',
+        criteria
+      });
       setMessage('✓ Feedback envoyé avec succès ! Merci pour votre retour totalement anonyme.');
       setMessageType('success');
-      setScores({ workQuality: 0, communication: 0, teamwork: 0, atmosphere: 0, cooperation: 0, deadlines: 0 });
+      setScores({});
       setGlobalRating(0);
-      setSelectedTags({ workQuality: [], communication: [], teamwork: [], atmosphere: [], cooperation: [], deadlines: [] });
+      setSelectedTags({});
       setRecipientId('');
       setTimeout(onSubmit, 1500);
-    } catch (error) {
-      setMessage('Erreur lors de la soumission. Veuillez réessayer.');
+    } catch (error: any) {
+      setMessage(error.response?.data?.message || 'Erreur lors de la soumission. Veuillez réessayer.');
       setMessageType('error');
     }
   }
@@ -148,10 +187,10 @@ function FeedbackForm({ onSubmit }: Props) {
 
       <div className="form-group">
         <label htmlFor="recipient">Parlez-nous de ce collaborateur :</label>
-        <select 
+        <select
           id="recipient"
-          value={recipientId} 
-          onChange={(event) => setRecipientId(event.target.value)} 
+          value={recipientId}
+          onChange={(event) => setRecipientId(event.target.value)}
           required
         >
           <option value="">Sélectionnez un employé</option>
@@ -167,7 +206,7 @@ function FeedbackForm({ onSubmit }: Props) {
         <p style={{ color: '#64748b', fontSize: '0.9rem', marginBottom: '16px' }}>
           Le système rédigera automatiquement le commentaire final en fonction de vos notes pour garantir un <b>anonymat absolu</b>.
         </p>
-        
+
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {activeCriteria.map(criterion => (
             <div key={criterion.key} className="criterion-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '12px', padding: '20px' }}>
@@ -176,66 +215,34 @@ function FeedbackForm({ onSubmit }: Props) {
               </span>
               <div style={{ display: 'flex', gap: '10px', fontSize: '2rem', cursor: 'pointer', justifyContent: 'center' }}>
                 {[1, 2, 3, 4, 5].map((star) => (
-                  <span 
+                  <span
                     key={star}
                     className="star-icon"
                     onClick={() => {
-                      if (scores[criterion.key as keyof typeof scores] !== star) {
+                      if (scores[criterion.key] !== star) {
                         setScores(prev => ({ ...prev, [criterion.key]: star }));
                         setSelectedTags(prev => ({ ...prev, [criterion.key]: [] }));
                       }
                     }}
-                    style={{ 
-                      color: star <= scores[criterion.key as keyof typeof scores] ? '#FF9500' : '#cbd5e1',
-                      filter: star <= scores[criterion.key as keyof typeof scores] ? 'drop-shadow(0 2px 4px rgba(255, 149, 0, 0.3))' : 'none'
+                    style={{
+                      color: star <= (scores[criterion.key] || 0) ? '#FF9500' : '#cbd5e1',
+                      filter: star <= (scores[criterion.key] || 0) ? 'drop-shadow(0 2px 4px rgba(255, 149, 0, 0.3))' : 'none'
                     }}
                   >
                     ★
                   </span>
                 ))}
               </div>
-              
-              {scores[criterion.key as keyof typeof scores] > 0 && (
+
+              {scores[criterion.key] > 0 && TAGS_DEFINITIONS[criterion.key] && (
                 <div className="tags-container" style={{ justifyContent: 'center' }}>
                   {(() => {
-                    const TAGS_DEFINITIONS: Record<string, { pos: string[], neu: string[], neg: string[] }> = {
-                      workQuality: { 
-                        pos: ['Très efficace', 'Fluide', 'Productif', 'Complémentaire'], 
-                        neu: ['Correct', 'Standard', 'À améliorer', 'Parfois lent'], 
-                        neg: ['Difficile', 'Inefficace', 'Désorganisé', 'Pas de suivi'] 
-                      },
-                      communication: { 
-                        pos: ['Clair', 'Réactif', 'À l\'écoute', 'Transparent'], 
-                        neu: ['Standard', 'Assez discret', 'Communication minimale'], 
-                        neg: ['Trop direct', 'Fermé', 'Réponses lentes', 'Peu clair'] 
-                      },
-                      teamwork: { 
-                        pos: ['Solidaire', 'Fédérateur', 'Bon soutien', 'Encourageant'], 
-                        neu: ['Indifférent', 'Fait sa part', 'Peu participatif'], 
-                        neg: ['Individualiste', 'Divise l\'équipe', 'Pas d\'entraide'] 
-                      },
-                      atmosphere: { 
-                        pos: ['Souriant', 'Bienveillant', 'Positif', 'Humoristique'], 
-                        neu: ['Neutre', 'Calme', 'Très réservé'], 
-                        neg: ['Humeur changeante', 'Créateur de tensions', 'Froid/Distant'] 
-                      },
-                      cooperation: { 
-                        pos: ['Toujours disponible', 'Très coopératif', 'Serviable', 'Flexible'], 
-                        neu: ['Disponible parfois', 'Coopère au besoin'], 
-                        neg: ['Indisponible', 'Peu coopératif', 'Refuse d\'aider'] 
-                      },
-                      deadlines: { 
-                        pos: ['Toujours à l\'heure', 'Respecte les échéances', 'Très fiable', 'Organisé'], 
-                        neu: ['Délais parfois dépassés', 'Respecte l\'essentiel'], 
-                        neg: ['Souvent en retard', 'Ne respecte pas ses engagements', 'Ralentit le travail'] 
-                      }
-                    };
-                    const score = scores[criterion.key as keyof typeof scores];
+                    const score = scores[criterion.key];
                     const tagCategory = score >= 4 ? 'pos' : (score === 3 ? 'neu' : 'neg');
                     const availableTags = TAGS_DEFINITIONS[criterion.key][tagCategory];
-                    
+
                     return availableTags.map(tag => {
-                      const isSelected = selectedTags[criterion.key as keyof typeof selectedTags].includes(tag);
+                      const isSelected = (selectedTags[criterion.key] || []).includes(tag);
                       return (
                         <button
                           type="button"
@@ -243,7 +250,7 @@ function FeedbackForm({ onSubmit }: Props) {
                           className={`tag-btn ${isSelected ? 'active' : ''}`}
                           onClick={() => {
                             setSelectedTags(prev => {
-                              const current = prev[criterion.key as keyof typeof prev];
+                              const current = prev[criterion.key] || [];
                               const updated = isSelected ? current.filter(t => t !== tag) : [...current, tag];
                               return { ...prev, [criterion.key]: updated };
                             });

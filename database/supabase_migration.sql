@@ -12,8 +12,8 @@ CREATE TABLE IF NOT EXISTS employees (
   name         VARCHAR(100) NOT NULL,
   email        VARCHAR(150) UNIQUE NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
-  role         VARCHAR(10)  NOT NULL DEFAULT 'user'
-                            CHECK (role IN ('user', 'admin')),
+  role         VARCHAR(20)  NOT NULL DEFAULT 'user'
+                            CHECK (role IN ('user', 'admin', 'super_admin')),
   position     VARCHAR(100) DEFAULT 'Employé',
   created_at   TIMESTAMP    DEFAULT CURRENT_TIMESTAMP
 );
@@ -29,8 +29,16 @@ CREATE TABLE IF NOT EXISTS feedbacks (
                             CHECK (source IN ('public', 'internal')),
   submitted_at DATE         NOT NULL DEFAULT CURRENT_DATE,
   is_moderated BOOLEAN      DEFAULT FALSE,
-  rating       INTEGER      DEFAULT 0 CHECK (rating BETWEEN 0 AND 5)
+  rating       INTEGER      DEFAULT 0 CHECK (rating BETWEEN 0 AND 5),
+  participant_id VARCHAR(50),
+  author_id    UUID         REFERENCES employees(id) ON DELETE SET NULL,
+  criteria     JSONB,
+  feedback_type VARCHAR(20) NOT NULL DEFAULT 'colleague'
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_feedbacks_author_recipient
+  ON feedbacks(author_id, recipient_id)
+  WHERE author_id IS NOT NULL;
 
 -- ============================================================
 -- TABLE: audit_logs

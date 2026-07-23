@@ -13,17 +13,37 @@ const NAV_ITEMS: Array<{ key: Section; label: string; icon: string }> = [
   { key: 'questions', label: 'Questions', icon: '🛠️' }
 ];
 
+interface AdminFeedback {
+  id: string;
+  content: string;
+  recipient_id: string;
+  recipient_name?: string;
+  submitted_at: string;
+  is_moderated: boolean;
+  rating?: number;
+  participant_id?: string;
+  feedback_type?: 'colleague' | 'conditions';
+  criteria?: Record<string, { score: number; tags?: string[] }> | null;
+}
+
 function AdminDashboard() {
   const [activeSection, setActiveSection] = useState<Section>('overview');
-  const [feedbacks, setFeedbacks] = useState<Array<{ id: string; content: string; recipient_id: string; recipient_name?: string; submitted_at: string; is_moderated: boolean; rating?: number; participant_id?: string }>>([]);
+  const [feedbacks, setFeedbacks] = useState<AdminFeedback[]>([]);
   const [employeeStats, setEmployeeStats] = useState<Array<{ id: string; name: string; position: string; total_feedbacks: number; positive_feedbacks: number; neutral_feedbacks: number; negative_feedbacks: number }>>([]);
+  const [participantsCount, setParticipantsCount] = useState(0);
   const [adminName, setAdminName] = useState('');
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [expandedFeedbacks, setExpandedFeedbacks] = useState<Record<string, boolean>>({});
+  const [expandedEmployeeId, setExpandedEmployeeId] = useState<string | null>(null);
+  const [revealedAuthors, setRevealedAuthors] = useState<Record<string, { name: string; email: string; position: string }>>({});
   const [adminTab, setAdminTab] = useState<'employees' | 'company'>('employees');
   const [showAddForm, setShowAddForm] = useState(false);
   const [formQuestions, setFormQuestions] = useState<Array<{ id: string; form_type: string; question_key: string; label: string; is_active: boolean; is_required: boolean; display_order: number }>>([]);
   const [questionEdits, setQuestionEdits] = useState<Record<string, string>>({});
+  const [newCriterionKey, setNewCriterionKey] = useState('');
+  const [newCriterionLabel, setNewCriterionLabel] = useState('');
+  const [newCriterionMessage, setNewCriterionMessage] = useState('');
   const [unreadCount, setUnreadCount] = useState(0);
   const seenFeedbackIdsRef = useRef<Set<string> | null>(null);
 
@@ -52,6 +72,7 @@ function AdminDashboard() {
       return;
     }
     setAuthToken(token);
+    setIsSuperAdmin(localStorage.getItem('feedback_role') === 'super_admin');
 
     function loadData() {
       return Promise.all([
@@ -70,6 +91,7 @@ function AdminDashboard() {
           }
         }),
         api.get('/admin/employee-stats').then((response) => setEmployeeStats(response.data.employeeStats)),
+        api.get('/admin/stats').then((response) => setParticipantsCount(response.data.uniqueParticipants)),
         api.get('/user/me').then((response) => setAdminName(response.data.name)).catch(() => setAdminName('Admin'))
       ]).catch(console.error);
     }
@@ -183,10 +205,72 @@ function AdminDashboard() {
   const globalTotal = feedbacks.length;
   const globalVisible = feedbacks.filter((f) => !f.is_moderated).length;
   const globalHidden = globalTotal - globalVisible;
-  const globalParticipants = new Set(feedbacks.map((f) => f.participant_id).filter(Boolean)).size;
   const recentFeedbacks = feedbacks.slice(0, 3);
 
   const filteredEmployeeStats = employeeStats.filter((emp) => !emp.name.toLowerCase().includes('entreprise'));
+
+  function computeEmployeeSynthesis(employeeId: string) {
+    const rows = feedbacks.filter((f) => f.recipient_id === employeeId && f.feedback_type !== 'conditions' && f.criteria);
+    const criteriaSums: Record<string, { sum: number; count: number; label: string }> = {};
+    const tagCounts: { positive: Record<string, number>; negative: Record<string, number> } = { positive: {}, negative: {} };
+
+    for (const row of rows) {
+      if (!row.criteria) continue;
+      for (const [key, value] of Object.entries(row.criteria)) {
+        if (!value || typeof value.score !== 'number') continue;
+        if (!criteriaSums[key]) {
+          const question = formQuestions.find((q) => q.question_key === key);
+          criteriaSums[key] = { sum: 0, count: 0, label: question?.label || key };
+        }
+        criteriaSums[key].sum += value.score;
+        criteriaSums[key].count += 1;
+        const bucket = value.score >= 4 ? 'positive' : value.score <= 2 ? 'negative' : null;
+        if (bucket && Array.isArray(value.tags)) {
+          for (const tag of value.tags) {
+            tagCounts[bucket][tag] = (tagCounts[bucket][tag] || 0) + 1;
+          }
+        }
+      }
+    }
+
+    const criteria = Object.entries(criteriaSums)
+      .map(([key, { sum, count, label }]) => ({ key, label, average: count > 0 ? sum / count : 0, count }))
+      .sort((a, b) => b.count - a.count);
+
+    const topTags = (bucket: Record<string, number>) =>
+      Object.entries(bucket).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([tag]) => tag);
+
+    return { criteria, topTags: { positive: topTags(tagCounts.positive), negative: topTags(tagCounts.negative) } };
+  }
+
+  async function handleRevealAuthor(feedbackId: string) {
+    const reason = window.prompt('Raison de la révélation (obligatoire, tracée dans les logs d\'audit) :');
+    if (!reason || reason.trim().length === 0) return;
+    try {
+      const response = await api.post(`/admin/feedbacks/${feedbackId}/reveal`, { reason: reason.trim() });
+      setRevealedAuthors((current) => ({ ...current, [feedbackId]: response.data.author }));
+    } catch (error: any) {
+      window.alert(error.response?.data?.message || "Impossible de révéler l'auteur.");
+    }
+  }
+
+  async function handleAddCriterion(event: React.FormEvent) {
+    event.preventDefault();
+    setNewCriterionMessage('');
+    try {
+      const response = await api.post('/admin/form-questions', {
+        formType: 'colleague',
+        questionKey: newCriterionKey.trim(),
+        label: newCriterionLabel.trim()
+      });
+      setFormQuestions((current) => [...current, response.data.question]);
+      setNewCriterionKey('');
+      setNewCriterionLabel('');
+      setNewCriterionMessage('✓ Critère ajouté avec succès.');
+    } catch (error: any) {
+      setNewCriterionMessage(error.response?.data?.message || "Erreur lors de l'ajout du critère.");
+    }
+  }
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--color-bg)' }}>
@@ -249,7 +333,7 @@ function AdminDashboard() {
                   </div>
                   <div className="card" style={{ textAlign: 'center' }}>
                     <p style={{ fontSize: '0.9rem', color: '#94a3b8', margin: '0 0 10px 0', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Participants</p>
-                    <h3 style={{ margin: '0', color: '#51AEE2', fontSize: '2.5rem', fontWeight: 800 }}>{globalParticipants}</h3>
+                    <h3 style={{ margin: '0', color: '#51AEE2', fontSize: '2.5rem', fontWeight: 800 }}>{participantsCount}</h3>
                   </div>
                 </div>
 
@@ -532,28 +616,143 @@ function AdminDashboard() {
                           <div style={{ color: '#FF3B30', fontSize: '0.75rem', fontWeight: 600, marginTop: '4px' }}>Négatifs</div>
                         </div>
                       </div>
-                      <button
-                        onClick={() => handleDeleteEmployee(emp.id, emp.name)}
-                        className="btn-danger"
-                        style={{
-                          marginTop: '16px',
-                          background: 'rgba(255, 59, 48, 0.1)',
-                          color: '#FF3B30',
-                          border: '1.5px solid #FF3B30',
-                          borderRadius: '8px',
-                          padding: '8px 16px',
-                          fontWeight: 600,
-                          fontSize: '0.85rem',
-                          width: '100%'
-                        }}
-                      >
-                        🗑 Supprimer ce collaborateur
-                      </button>
+                      <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+                        <button
+                          onClick={() => setExpandedEmployeeId((current) => (current === emp.id ? null : emp.id))}
+                          className="btn-secondary"
+                          style={{
+                            background: 'rgba(0, 75, 156, 0.08)',
+                            color: '#004B9C',
+                            border: '1.5px solid #004B9C',
+                            borderRadius: '8px',
+                            padding: '8px 16px',
+                            fontWeight: 600,
+                            fontSize: '0.85rem',
+                            flex: 1
+                          }}
+                        >
+                          {expandedEmployeeId === emp.id ? '✕ Masquer le détail' : '🔍 Voir le détail'}
+                        </button>
+                        <button
+                          onClick={() => handleDeleteEmployee(emp.id, emp.name)}
+                          className="btn-danger"
+                          style={{
+                            background: 'rgba(255, 59, 48, 0.1)',
+                            color: '#FF3B30',
+                            border: '1.5px solid #FF3B30',
+                            borderRadius: '8px',
+                            padding: '8px 16px',
+                            fontWeight: 600,
+                            fontSize: '0.85rem'
+                          }}
+                        >
+                          🗑
+                        </button>
+                      </div>
                     </div>
                   ))
                 )}
               </div>
             )}
+
+            {expandedEmployeeId && (() => {
+              const emp = filteredEmployeeStats.find((e) => e.id === expandedEmployeeId);
+              if (!emp) return null;
+              const { criteria, topTags } = computeEmployeeSynthesis(emp.id);
+              const employeeFeedbacks = feedbacks.filter((f) => f.recipient_id === emp.id && f.feedback_type !== 'conditions');
+
+              return (
+                <div className="card" style={{ marginTop: '30px', padding: '28px' }}>
+                  <h3 style={{ margin: '0 0 20px 0', color: 'var(--color-primary-dark)', fontSize: '1.3rem' }}>Détail — {emp.name}</h3>
+
+                  {criteria.length > 0 && (
+                    <div style={{ marginBottom: '24px' }}>
+                      <h4 style={{ margin: '0 0 14px 0', color: '#0f172a', fontSize: '1rem' }}>Moyenne par critère</h4>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                        {criteria.map((c) => (
+                          <div key={c.key}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '0.9rem' }}>
+                              <span style={{ color: '#0f172a', fontWeight: 600 }}>{c.label}</span>
+                              <span style={{ color: '#64748b' }}>{c.average.toFixed(1)}/5 ({c.count})</span>
+                            </div>
+                            <div style={{ background: '#e2e8f0', borderRadius: '8px', height: '10px', overflow: 'hidden' }}>
+                              <div style={{ width: `${(c.average / 5) * 100}%`, background: 'linear-gradient(90deg, #004B9C 0%, #51AEE2 100%)', height: '100%' }} />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {(topTags.positive.length > 0 || topTags.negative.length > 0) && (
+                    <div style={{ marginBottom: '24px' }}>
+                      {topTags.positive.length > 0 && (
+                        <div style={{ marginBottom: '12px' }}>
+                          <p style={{ color: '#34C759', fontWeight: 600, fontSize: '0.85rem', marginBottom: '8px' }}>👍 Points forts</p>
+                          <div className="tags-container" style={{ borderTop: 'none', padding: 0 }}>
+                            {topTags.positive.map((tag) => <span key={tag} className="tag-btn active">{tag}</span>)}
+                          </div>
+                        </div>
+                      )}
+                      {topTags.negative.length > 0 && (
+                        <div>
+                          <p style={{ color: '#FF3B30', fontWeight: 600, fontSize: '0.85rem', marginBottom: '8px' }}>⚠️ Axes d'amélioration</p>
+                          <div className="tags-container" style={{ borderTop: 'none', padding: 0 }}>
+                            {topTags.negative.map((tag) => <span key={tag} className="tag-btn">{tag}</span>)}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <h4 style={{ margin: '0 0 14px 0', color: '#0f172a', fontSize: '1rem' }}>Avis individuels ({employeeFeedbacks.length})</h4>
+                  {employeeFeedbacks.length === 0 ? (
+                    <p style={{ color: '#94a3b8' }}>Aucun avis pour ce collaborateur.</p>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                      {employeeFeedbacks.map((feedback) => (
+                        <div key={feedback.id} style={{ border: '1.5px solid #e2e8f0', borderRadius: '12px', padding: '16px 18px' }}>
+                          <p style={{ color: '#0f172a', fontSize: '0.95rem', lineHeight: '1.6', margin: '0 0 10px 0' }}>"{feedback.content}"</p>
+                          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', fontSize: '0.85rem', color: '#94a3b8', marginBottom: '10px' }}>
+                            <span>📅 {new Date(feedback.submitted_at).toLocaleDateString('fr-FR')}</span>
+                            {feedback.rating ? <span>⭐ {feedback.rating}/10</span> : null}
+                          </div>
+                          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                            <button
+                              onClick={() => handleModerate(feedback.id, !feedback.is_moderated)}
+                              className="btn-secondary"
+                              style={{ padding: '6px 12px', fontSize: '0.8rem', borderRadius: '8px', background: feedback.is_moderated ? 'rgba(52, 199, 89, 0.12)' : 'rgba(148, 163, 184, 0.15)', color: feedback.is_moderated ? '#34C759' : '#64748b', border: 'none' }}
+                            >
+                              {feedback.is_moderated ? '👁 Afficher' : '👁 Masquer'}
+                            </button>
+                            <button
+                              onClick={() => handleDelete(feedback.id)}
+                              className="btn-danger"
+                              style={{ padding: '6px 12px', fontSize: '0.8rem', borderRadius: '8px', background: 'rgba(255, 59, 48, 0.15)', color: '#FF3B30', border: 'none' }}
+                            >
+                              🗑 Supprimer
+                            </button>
+                            {isSuperAdmin && !revealedAuthors[feedback.id] && (
+                              <button
+                                onClick={() => handleRevealAuthor(feedback.id)}
+                                style={{ padding: '6px 12px', fontSize: '0.8rem', borderRadius: '8px', background: 'rgba(255, 149, 0, 0.15)', color: '#FF9500', border: 'none', fontWeight: 600 }}
+                              >
+                                🔎 Révéler l'auteur
+                              </button>
+                            )}
+                          </div>
+                          {revealedAuthors[feedback.id] && (
+                            <div style={{ marginTop: '10px', background: 'rgba(255, 149, 0, 0.1)', border: '1.5px solid #FF9500', borderRadius: '8px', padding: '10px 14px', fontSize: '0.85rem', color: '#7a4a00' }}>
+                              ⚠️ Auteur : <strong>{revealedAuthors[feedback.id].name}</strong> ({revealedAuthors[feedback.id].email}, {revealedAuthors[feedback.id].position})
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </section>
         )}
 
@@ -602,6 +801,42 @@ function AdminDashboard() {
                       </div>
                     ))}
                 </div>
+
+                {formType === 'colleague' && (
+                  <form onSubmit={handleAddCriterion} className="card" style={{ marginTop: '16px', display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: '12px', padding: '16px 20px' }}>
+                    {newCriterionMessage && (
+                      <p style={{ width: '100%', margin: 0, color: newCriterionMessage.startsWith('✓') ? '#34C759' : '#FF3B30', fontSize: '0.85rem', fontWeight: 600 }}>
+                        {newCriterionMessage}
+                      </p>
+                    )}
+                    <div style={{ flex: '1 1 160px' }}>
+                      <label style={{ display: 'block', fontSize: '0.8rem', color: '#64748b', marginBottom: '6px' }}>Clé technique</label>
+                      <input
+                        type="text"
+                        value={newCriterionKey}
+                        onChange={(e) => setNewCriterionKey(e.target.value)}
+                        placeholder="ex: proactivite"
+                        pattern="[a-zA-Z0-9_]+"
+                        required
+                        style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1.5px solid #e2e8f0' }}
+                      />
+                    </div>
+                    <div style={{ flex: '2 1 280px' }}>
+                      <label style={{ display: 'block', fontSize: '0.8rem', color: '#64748b', marginBottom: '6px' }}>Libellé de la question (notée par étoiles)</label>
+                      <input
+                        type="text"
+                        value={newCriterionLabel}
+                        onChange={(e) => setNewCriterionLabel(e.target.value)}
+                        placeholder="ex: 🚀 Cette personne fait-elle preuve de proactivité ?"
+                        required
+                        style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1.5px solid #e2e8f0' }}
+                      />
+                    </div>
+                    <button type="submit" className="btn-primary" style={{ padding: '10px 20px', fontSize: '0.9rem', width: 'auto' }}>
+                      ＋ Ajouter le critère
+                    </button>
+                  </form>
+                )}
               </div>
             ))}
           </section>

@@ -3,7 +3,7 @@ import { query } from '../utils/db';
 
 export async function getAllFeedbacks(_req: Request, res: Response) {
   const result = await query(
-    `SELECT f.id, f.content, f.recipient_id, f.source, f.submitted_at, f.is_moderated, f.rating, f.participant_id, e.name as recipient_name
+    `SELECT f.id, f.content, f.recipient_id, f.source, f.submitted_at, f.is_moderated, f.rating, f.participant_id, f.feedback_type, f.criteria, e.name as recipient_name
      FROM feedbacks f
      LEFT JOIN employees e ON f.recipient_id = e.id
      ORDER BY f.submitted_at DESC`
@@ -20,8 +20,8 @@ export async function deleteFeedback(req: Request, res: Response) {
 export async function getStats(_req: Request, res: Response) {
   const totalResult = await query('SELECT COUNT(*) as total FROM feedbacks');
   const moderatedResult = await query('SELECT COUNT(*) as moderated FROM feedbacks WHERE is_moderated = TRUE');
-  const participantsResult = await query('SELECT COUNT(DISTINCT participant_id) as participants FROM feedbacks WHERE participant_id IS NOT NULL');
-  
+  const participantsResult = await query('SELECT COUNT(DISTINCT author_id) as participants FROM feedbacks WHERE author_id IS NOT NULL');
+
   return res.json({
     total: parseInt(totalResult.rows[0].total),
     moderated: parseInt(moderatedResult.rows[0].moderated),
@@ -71,4 +71,37 @@ export async function getEmployeeStats(_req: Request, res: Response) {
   }));
   
   return res.json({ employeeStats: stats });
+}
+
+export async function revealFeedbackAuthor(req: Request, res: Response) {
+  const { id } = req.params;
+  const { reason } = req.body;
+  const superAdmin = res.locals.user;
+
+  if (typeof reason !== 'string' || reason.trim().length === 0) {
+    return res.status(400).json({ message: 'Une raison est requise pour révéler un auteur.' });
+  }
+
+  const feedbackResult = await query('SELECT author_id FROM feedbacks WHERE id = $1', [id]);
+  if (feedbackResult.rows.length === 0) {
+    return res.status(404).json({ message: 'Feedback not found' });
+  }
+
+  const authorId = feedbackResult.rows[0].author_id;
+  if (!authorId) {
+    return res.status(404).json({ message: "Avis soumis avant l'activation de cette fonctionnalité, auteur introuvable." });
+  }
+
+  const authorResult = await query('SELECT name, email, position FROM employees WHERE id = $1', [authorId]);
+  if (authorResult.rows.length === 0) {
+    return res.status(404).json({ message: 'Auteur introuvable (compte supprimé).' });
+  }
+
+  await query(
+    `INSERT INTO audit_logs(action, user_id, target_table, target_id, details)
+     VALUES($1, $2, $3, $4, $5)`,
+    ['reveal_feedback_author', superAdmin.userId, 'feedbacks', id, JSON.stringify({ reason: reason.trim(), revealedAuthorId: authorId })]
+  );
+
+  return res.json({ author: authorResult.rows[0] });
 }

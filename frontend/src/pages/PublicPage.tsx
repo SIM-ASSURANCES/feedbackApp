@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import FeedbackForm from '../components/FeedbackForm';
@@ -99,57 +99,70 @@ function PublicPage() {
             </p>
           </div>
 
-          {/* Form Selector (Tabs) */}
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', marginBottom: '32px', flexWrap: 'wrap' }}>
-            <button 
-              type="button" 
-              onClick={() => setActiveTab('colleague')}
-              style={{
-                padding: '12px 24px',
-                borderRadius: '50px',
-                fontWeight: 700,
-                fontSize: '0.95rem',
-                cursor: 'pointer',
-                transition: 'all 0.3s ease',
-                background: activeTab === 'colleague' ? '#004B9C' : 'rgba(0, 75, 156, 0.08)',
-                color: activeTab === 'colleague' ? 'white' : '#004B9C',
-                border: activeTab === 'colleague' ? 'none' : '1.5px solid rgba(0, 75, 156, 0.2)',
-                boxShadow: activeTab === 'colleague' ? '0 4px 15px rgba(0, 75, 156, 0.3)' : 'none'
-              }}
-            >
-              👤 Collaboration entre collègues
-            </button>
-            <button 
-              type="button" 
-              onClick={() => setActiveTab('conditions')}
-              style={{
-                padding: '12px 24px',
-                borderRadius: '50px',
-                fontWeight: 700,
-                fontSize: '0.95rem',
-                cursor: 'pointer',
-                transition: 'all 0.3s ease',
-                background: activeTab === 'conditions' ? '#004B9C' : 'rgba(0, 75, 156, 0.08)',
-                color: activeTab === 'conditions' ? 'white' : '#004B9C',
-                border: activeTab === 'conditions' ? 'none' : '1.5px solid rgba(0, 75, 156, 0.2)',
-                boxShadow: activeTab === 'conditions' ? '0 4px 15px rgba(0, 75, 156, 0.3)' : 'none'
-              }}
-            >
-              🏢 Conditions de travail
-            </button>
-          </div>
+          {isAuthenticated ? (
+            <>
+              {/* Form Selector (Tabs) */}
+              <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', marginBottom: '32px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('colleague')}
+                  style={{
+                    padding: '12px 24px',
+                    borderRadius: '50px',
+                    fontWeight: 700,
+                    fontSize: '0.95rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.3s ease',
+                    background: activeTab === 'colleague' ? '#004B9C' : 'rgba(0, 75, 156, 0.08)',
+                    color: activeTab === 'colleague' ? 'white' : '#004B9C',
+                    border: activeTab === 'colleague' ? 'none' : '1.5px solid rgba(0, 75, 156, 0.2)',
+                    boxShadow: activeTab === 'colleague' ? '0 4px 15px rgba(0, 75, 156, 0.3)' : 'none'
+                  }}
+                >
+                  👤 Collaboration entre collègues
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('conditions')}
+                  style={{
+                    padding: '12px 24px',
+                    borderRadius: '50px',
+                    fontWeight: 700,
+                    fontSize: '0.95rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.3s ease',
+                    background: activeTab === 'conditions' ? '#004B9C' : 'rgba(0, 75, 156, 0.08)',
+                    color: activeTab === 'conditions' ? 'white' : '#004B9C',
+                    border: activeTab === 'conditions' ? 'none' : '1.5px solid rgba(0, 75, 156, 0.2)',
+                    boxShadow: activeTab === 'conditions' ? '0 4px 15px rgba(0, 75, 156, 0.3)' : 'none'
+                  }}
+                >
+                  🏢 Conditions de travail
+                </button>
+              </div>
 
-          {activeTab === 'colleague' ? (
-            <FeedbackForm onSubmit={handleColleagueSubmit} />
+              {activeTab === 'colleague' ? (
+                <FeedbackForm onSubmit={handleColleagueSubmit} />
+              ) : (
+                <WorkConditionsForm onSubmit={handleConditionsSubmit} />
+              )}
+
+              {((activeTab === 'conditions' && hasSubmittedColleague && !hasSubmittedConditions) ||
+                (activeTab === 'colleague' && hasSubmittedConditions && !hasSubmittedColleague)) && (
+                <p style={{ color: '#004B9C', fontWeight: 600, textAlign: 'center', marginTop: '-16px', marginBottom: '32px', fontSize: '0.95rem' }}>
+                  Merci ! Il ne vous reste plus que ce second avis à partager 🙏
+                </p>
+              )}
+            </>
           ) : (
-            <WorkConditionsForm onSubmit={handleConditionsSubmit} />
-          )}
-
-          {((activeTab === 'conditions' && hasSubmittedColleague && !hasSubmittedConditions) ||
-            (activeTab === 'colleague' && hasSubmittedConditions && !hasSubmittedColleague)) && (
-            <p style={{ color: '#004B9C', fontWeight: 600, textAlign: 'center', marginTop: '-16px', marginBottom: '32px', fontSize: '0.95rem' }}>
-              Merci ! Il ne vous reste plus que ce second avis à partager 🙏
-            </p>
+            <div className="card" style={{ textAlign: 'center', padding: '48px', maxWidth: '600px', margin: '0 auto' }}>
+              <p style={{ fontSize: '1.1rem', color: '#0f172a', marginBottom: '20px' }}>
+                Connectez-vous avec votre compte SIM Assurances pour laisser un avis.
+              </p>
+              <Link to="/login" className="btn-primary" style={{ display: 'inline-block', width: 'auto', textDecoration: 'none' }}>
+                Se connecter
+              </Link>
+            </div>
           )}
         </section>
 

@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS employees (
   name VARCHAR(100) NOT NULL,
   email VARCHAR(150) UNIQUE NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
-  role VARCHAR(10) NOT NULL DEFAULT 'user',
+  role VARCHAR(20) NOT NULL DEFAULT 'user',
   position VARCHAR(100) DEFAULT 'Employé',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -19,7 +19,25 @@ CREATE TABLE IF NOT EXISTS feedbacks (
   submitted_at DATE NOT NULL DEFAULT CURRENT_DATE,
   is_moderated BOOLEAN DEFAULT FALSE,
   rating INTEGER DEFAULT 0,
-  participant_id VARCHAR(50)
+  participant_id VARCHAR(50),
+  author_id UUID REFERENCES employees(id) ON DELETE SET NULL,
+  criteria JSONB,
+  feedback_type VARCHAR(20) NOT NULL DEFAULT 'colleague'
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_feedbacks_author_recipient
+  ON feedbacks(author_id, recipient_id)
+  WHERE author_id IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS form_questions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  form_type VARCHAR(20) NOT NULL,
+  question_key VARCHAR(50) NOT NULL,
+  label TEXT NOT NULL,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  is_required BOOLEAN NOT NULL DEFAULT FALSE,
+  display_order INTEGER NOT NULL DEFAULT 0,
+  UNIQUE(form_type, question_key)
 );
 
 CREATE TABLE IF NOT EXISTS audit_logs (

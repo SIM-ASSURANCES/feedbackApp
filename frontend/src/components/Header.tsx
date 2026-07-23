@@ -10,7 +10,7 @@ interface HeaderProps {
 function Header({ isAuthenticated = false, onLogout }: HeaderProps) {
   const location = useLocation();
   const userRole = localStorage.getItem('feedback_role');
-  const isAdmin = userRole === 'admin' || location.pathname.includes('/admin');
+  const isAdmin = userRole === 'admin' || userRole === 'super_admin' || location.pathname.includes('/admin');
   const [menuOpen, setMenuOpen] = useState(false);
 
   const handleLogout = () => {

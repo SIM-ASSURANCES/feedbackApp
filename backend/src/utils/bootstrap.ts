@@ -29,6 +29,21 @@ async function ensureSchema() {
     )
   `);
 
+  // Élargissement du rôle pour accueillir 'super_admin'
+  await query(`ALTER TABLE employees ALTER COLUMN role TYPE VARCHAR(20)`);
+
+  // Identité réelle de l'auteur (compte employé), détail par critère et type de formulaire
+  await query(`ALTER TABLE feedbacks ADD COLUMN IF NOT EXISTS author_id UUID REFERENCES employees(id) ON DELETE SET NULL`);
+  await query(`ALTER TABLE feedbacks ADD COLUMN IF NOT EXISTS criteria JSONB`);
+  await query(`ALTER TABLE feedbacks ADD COLUMN IF NOT EXISTS feedback_type VARCHAR(20) NOT NULL DEFAULT 'colleague'`);
+
+  // Un même auteur ne peut noter un même destinataire qu'une seule fois
+  await query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_feedbacks_author_recipient
+    ON feedbacks(author_id, recipient_id)
+    WHERE author_id IS NOT NULL
+  `);
+
   await query(`
     CREATE TABLE IF NOT EXISTS audit_logs (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -107,8 +122,29 @@ async function ensureAdmin() {
   console.log(`Compte admin initialisé: ${email}`);
 }
 
+async function ensureSuperAdmin() {
+  const email = process.env.SUPER_ADMIN_EMAIL;
+  const password = process.env.SUPER_ADMIN_PASSWORD;
+  if (!email || !password) {
+    return;
+  }
+
+  const existing = await query('SELECT id FROM employees WHERE email = $1', [email]);
+  if (existing.rows.length > 0) {
+    return;
+  }
+
+  const passwordHash = await bcrypt.hash(password, Number(process.env.BCRYPT_ROUNDS ?? 12));
+  await query(
+    'INSERT INTO employees(name, email, password_hash, role) VALUES($1, $2, $3, $4)',
+    [process.env.SUPER_ADMIN_NAME ?? 'Super Admin', email, passwordHash, 'super_admin']
+  );
+  console.log(`Compte super_admin initialisé: ${email}`);
+}
+
 export async function bootstrap() {
   await ensureSchema();
   await ensureAdmin();
+  await ensureSuperAdmin();
   await ensureFormQuestions();
 }

@@ -22,7 +22,7 @@ function LoginPage() {
       localStorage.setItem('feedback_token', token);
       localStorage.setItem('feedback_role', role);
       setAuthToken(token);
-      if (role === 'admin') {
+      if (role === 'admin' || role === 'super_admin') {
         navigate('/admin');
       } else {
         navigate('/user/me');

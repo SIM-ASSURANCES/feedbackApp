@@ -15,7 +15,6 @@ interface WorkConditionsFormProps {
 function WorkConditionsForm({ onSubmit }: WorkConditionsFormProps) {
   const { isActive, getLabel } = useFormQuestions('conditions');
   const [recipientId, setRecipientId] = useState('');
-  const [participantId, setParticipantId] = useState('');
   const [step, setStep] = useState(1);
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState<'success' | 'error'>('success');
@@ -35,14 +34,6 @@ function WorkConditionsForm({ onSubmit }: WorkConditionsFormProps) {
   const [q11, setQ11] = useState('');
 
   useEffect(() => {
-    // Participant ID
-    let pid = localStorage.getItem('feedback_participant_id');
-    if (!pid) {
-      pid = crypto.randomUUID();
-      localStorage.setItem('feedback_participant_id', pid);
-    }
-    setParticipantId(pid);
-
     // Get "Entreprise" employee ID
     api.get('/employees')
       .then((response) => {
@@ -214,7 +205,7 @@ function WorkConditionsForm({ onSubmit }: WorkConditionsFormProps) {
         recipientId,
         content: finalContent,
         rating: q10, // Utilise la satisfaction globale Q10 comme note
-        participantId
+        feedbackType: 'conditions'
       });
 
       setMessage('Merci pour votre retour précieux ! Vos réponses ont été enregistrées.');

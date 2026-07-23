@@ -13,37 +13,65 @@ export async function getPublicFeedbacks(_req: Request, res: Response) {
   return res.json({ feedbacks: result.rows });
 }
 
+function isValidCriteria(criteria: unknown): criteria is Record<string, { score: number; tags?: string[] }> {
+  if (typeof criteria !== 'object' || criteria === null || Array.isArray(criteria)) {
+    return false;
+  }
+  return Object.values(criteria).every((value) => {
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+      return false;
+    }
+    const entry = value as { score?: unknown; tags?: unknown };
+    return (
+      typeof entry.score === 'number' &&
+      entry.score >= 1 &&
+      entry.score <= 5 &&
+      (entry.tags === undefined || (Array.isArray(entry.tags) && entry.tags.every((t) => typeof t === 'string')))
+    );
+  });
+}
+
 export async function submitFeedback(req: Request, res: Response) {
-  const { recipientId, content, rating, participantId } = req.body;
+  const authorId = res.locals.user?.userId;
+  if (!authorId) {
+    return res.status(401).json({ message: 'Unauthorized' });
+  }
+
+  const { recipientId, content, rating, feedbackType, criteria } = req.body;
   if (!recipientId || !content || content.length < 20 || content.length > 1500) {
     return res.status(400).json({ message: 'Recipient and content are required (20-1500 chars)' });
   }
 
-  // Validation anti-spam basique
-  const spamWords = ['spam', 'test', 'fake', 'dummy'];
-  const lowerContent = content.toLowerCase();
-  if (spamWords.some(word => lowerContent.includes(word))) {
-    return res.status(400).json({ message: 'Content contains inappropriate words' });
+  if (recipientId === authorId) {
+    return res.status(400).json({ message: 'Vous ne pouvez pas laisser un avis sur vous-même.' });
   }
 
-  // Vérifier le délai minimum entre soumissions (5 minutes)
-  const recentFeedback = await query(
-    'SELECT submitted_at FROM feedbacks WHERE recipient_id = $1 ORDER BY submitted_at DESC LIMIT 1',
-    [recipientId]
+  const type = feedbackType === 'conditions' ? 'conditions' : 'colleague';
+  if (criteria !== undefined && criteria !== null && !isValidCriteria(criteria)) {
+    return res.status(400).json({ message: 'Format de critères invalide' });
+  }
+
+  // Un même auteur ne peut noter un même destinataire qu'une seule fois
+  const existing = await query(
+    'SELECT id FROM feedbacks WHERE author_id = $1 AND recipient_id = $2',
+    [authorId, recipientId]
   );
-  if (recentFeedback.rows.length > 0) {
-    const lastSubmission = new Date(recentFeedback.rows[0].submitted_at);
-    const now = new Date();
-    const diffMinutes = (now.getTime() - lastSubmission.getTime()) / (1000 * 60);
-    if (diffMinutes < 5) {
-      return res.status(429).json({ message: 'Please wait 5 minutes between submissions' });
+  if (existing.rows.length > 0) {
+    return res.status(409).json({ message: 'Vous avez déjà donné votre avis pour ce destinataire.' });
+  }
+
+  try {
+    await query(
+      `INSERT INTO feedbacks(id, content, recipient_id, source, submitted_at, is_moderated, rating, author_id, feedback_type, criteria)
+       VALUES(gen_random_uuid(), $1, $2, $3, CURRENT_DATE, FALSE, $4, $5, $6, $7)`,
+      [content.trim(), recipientId, 'public', rating || 0, authorId, type, type === 'colleague' && criteria ? JSON.stringify(criteria) : null]
+    );
+  } catch (error: any) {
+    if (error?.code === '23505') {
+      return res.status(409).json({ message: 'Vous avez déjà donné votre avis pour ce destinataire.' });
     }
+    throw error;
   }
-
-  await query(
-    'INSERT INTO feedbacks(id, content, recipient_id, source, submitted_at, is_moderated, rating, participant_id) VALUES(gen_random_uuid(), $1, $2, $3, CURRENT_DATE, FALSE, $4, $5)',
-    [content.trim(), recipientId, 'public', rating || 0, participantId || null]
-  );
 
   return res.status(201).json({ message: 'Feedback submitted anonymously' });
 }
