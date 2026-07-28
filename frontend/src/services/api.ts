@@ -5,6 +5,13 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' }
 });
 
+// Réapplique le token existant dès le chargement (utile après un rechargement de page
+// sur une route qui ne fait pas elle-même l'appel setAuthToken, ex: la page publique).
+const storedToken = localStorage.getItem('feedback_token');
+if (storedToken) {
+  api.defaults.headers.common.Authorization = `Bearer ${storedToken}`;
+}
+
 export function setAuthToken(token: string | null) {
   if (token) {
     api.defaults.headers.common.Authorization = `Bearer ${token}`;

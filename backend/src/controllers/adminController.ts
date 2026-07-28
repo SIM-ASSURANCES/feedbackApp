@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { query } from '../utils/db';
+import { computeColleagueSynthesis } from '../utils/synthesis';
 
 export async function getAllFeedbacks(_req: Request, res: Response) {
   const result = await query(
@@ -57,6 +58,7 @@ export async function getEmployeeStats(_req: Request, res: Response) {
       SUM(CASE WHEN f.rating <= 4 AND f.rating > 0 THEN 1 ELSE 0 END) as negative_feedbacks
     FROM employees e
     LEFT JOIN feedbacks f ON e.id = f.recipient_id
+    WHERE e.role = 'user'
     GROUP BY e.id, e.name, e.position
     ORDER BY total_feedbacks DESC, e.name ASC
   `);
@@ -71,6 +73,12 @@ export async function getEmployeeStats(_req: Request, res: Response) {
   }));
   
   return res.json({ employeeStats: stats });
+}
+
+export async function getEmployeeSynthesis(req: Request, res: Response) {
+  const { id } = req.params;
+  const synthesis = await computeColleagueSynthesis(id);
+  return res.json(synthesis);
 }
 
 export async function revealFeedbackAuthor(req: Request, res: Response) {

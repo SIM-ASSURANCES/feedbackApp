@@ -1,4 +1,4 @@
-import { useState, useEffect, FormEvent } from 'react';
+import { useState, useEffect, useRef, FormEvent } from 'react';
 import api from '../services/api';
 import { useFormQuestions } from '../hooks/useFormQuestions';
 
@@ -77,6 +77,12 @@ function FeedbackForm({ onSubmit }: Props) {
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState<'success' | 'error' | 'info'>('info');
   const [employees, setEmployees] = useState<EmployeeOption[]>([]);
+  const [attemptedSubmit, setAttemptedSubmit] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  function scrollToTop() {
+    setTimeout(() => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+  }
 
   useEffect(() => {
     api
@@ -141,16 +147,13 @@ function FeedbackForm({ onSubmit }: Props) {
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
+    setAttemptedSubmit(true);
 
     // Validation
-    if (activeCriteria.some((c) => !scores[c.key])) {
-      setMessage('Veuillez noter tous les critères avant de valider.');
+    if (activeCriteria.some((c) => !scores[c.key]) || globalRating === 0) {
+      setMessage('Veuillez renseigner tous les champs marqués en rouge ci-dessous avant de valider.');
       setMessageType('error');
-      return;
-    }
-    if (globalRating === 0) {
-      setMessage('Veuillez attribuer une note globale avant de valider.');
-      setMessageType('error');
+      scrollToTop();
       return;
     }
 
@@ -174,15 +177,18 @@ function FeedbackForm({ onSubmit }: Props) {
       setGlobalRating(0);
       setSelectedTags({});
       setRecipientId('');
+      setAttemptedSubmit(false);
+      scrollToTop();
       setTimeout(onSubmit, 1500);
     } catch (error: any) {
       setMessage(error.response?.data?.message || 'Erreur lors de la soumission. Veuillez réessayer.');
       setMessageType('error');
+      scrollToTop();
     }
   }
 
   return (
-    <form onSubmit={handleSubmit} className="form-glass">
+    <form ref={formRef} onSubmit={handleSubmit} className="form-glass">
       {message && <p className={`message message-${messageType}`}>{message}</p>}
 
       <div className="form-group">
@@ -208,11 +214,16 @@ function FeedbackForm({ onSubmit }: Props) {
         </p>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {activeCriteria.map(criterion => (
-            <div key={criterion.key} className="criterion-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '12px', padding: '20px' }}>
+          {activeCriteria.map(criterion => {
+            const isMissing = attemptedSubmit && !scores[criterion.key];
+            return (
+            <div key={criterion.key} className="criterion-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '12px', padding: '20px', border: isMissing ? '2px solid #FF3B30' : '2px solid transparent', borderRadius: '12px', background: isMissing ? 'rgba(255, 59, 48, 0.05)' : 'transparent' }}>
               <span className="criterion-label" style={{ fontSize: '1.05rem', color: '#0f172a', fontWeight: 700, display: 'block', width: '100%', textAlign: 'center' }}>
                 {getLabel(criterion.key, criterion.label)}
               </span>
+              {isMissing && (
+                <span style={{ color: '#FF3B30', fontSize: '0.8rem', fontWeight: 600 }}>⚠️ Note requise</span>
+              )}
               <div style={{ display: 'flex', gap: '10px', fontSize: '2rem', cursor: 'pointer', justifyContent: 'center' }}>
                 {[1, 2, 3, 4, 5].map((star) => (
                   <span
@@ -264,14 +275,18 @@ function FeedbackForm({ onSubmit }: Props) {
                 </div>
               )}
             </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Global Rating */}
-        <div className="criterion-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '16px', marginTop: '24px', padding: '20px' }}>
+        <div className="criterion-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '16px', marginTop: '24px', padding: '20px', border: attemptedSubmit && globalRating === 0 ? '2px solid #FF3B30' : '2px solid transparent', borderRadius: '12px', background: attemptedSubmit && globalRating === 0 ? 'rgba(255, 59, 48, 0.05)' : 'transparent' }}>
           <span className="criterion-label" style={{ fontSize: '1.05rem', color: '#0f172a', fontWeight: 700, display: 'block', width: '100%', textAlign: 'center' }}>
             {getLabel('globalRating', '🎯 Globalement, comment évaluez-vous ce collaborateur ?')}
           </span>
+          {attemptedSubmit && globalRating === 0 && (
+            <span style={{ color: '#FF3B30', fontSize: '0.8rem', fontWeight: 600 }}>⚠️ Note requise</span>
+          )}
           <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', flexWrap: 'wrap', width: '100%' }}>
             {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
               <button

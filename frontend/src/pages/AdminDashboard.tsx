@@ -2,16 +2,29 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
+import ChangePasswordForm from '../components/ChangePasswordForm';
 import api, { setAuthToken } from '../services/api';
 
-type Section = 'overview' | 'feedbacks' | 'employees' | 'questions';
+type Section = 'overview' | 'feedbacks' | 'employees' | 'questions' | 'security';
 
 const NAV_ITEMS: Array<{ key: Section; label: string; icon: string }> = [
   { key: 'overview', label: "Vue d'ensemble", icon: '📊' },
-  { key: 'feedbacks', label: 'Retours', icon: '💬' },
-  { key: 'employees', label: 'Collaborateurs', icon: '👥' },
-  { key: 'questions', label: 'Questions', icon: '🛠️' }
+  { key: 'feedbacks', label: 'Avis Entreprise', icon: '💬' },
+  { key: 'employees', label: 'Espace Collaborateurs', icon: '👥' },
+  { key: 'questions', label: 'Questions', icon: '🛠️' },
+  { key: 'security', label: 'Mot de passe', icon: '🔑' }
 ];
+
+interface EmployeeSynthesis {
+  totalCount: number;
+  averageRating: number;
+  positiveCount: number;
+  neutralCount: number;
+  negativeCount: number;
+  criteria: Array<{ key: string; label: string; shortLabel: string; average: number; count: number }>;
+  topTags: { positive: string[]; negative: string[] };
+  synthesisText: string;
+}
 
 interface AdminFeedback {
   id: string;
@@ -36,16 +49,15 @@ function AdminDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [expandedFeedbacks, setExpandedFeedbacks] = useState<Record<string, boolean>>({});
   const [expandedEmployeeId, setExpandedEmployeeId] = useState<string | null>(null);
+  const employeeDetailRef = useRef<HTMLDivElement | null>(null);
   const [revealedAuthors, setRevealedAuthors] = useState<Record<string, { name: string; email: string; position: string }>>({});
-  const [adminTab, setAdminTab] = useState<'employees' | 'company'>('employees');
+  const [employeeSynthesisCache, setEmployeeSynthesisCache] = useState<Record<string, EmployeeSynthesis>>({});
   const [showAddForm, setShowAddForm] = useState(false);
   const [formQuestions, setFormQuestions] = useState<Array<{ id: string; form_type: string; question_key: string; label: string; is_active: boolean; is_required: boolean; display_order: number }>>([]);
   const [questionEdits, setQuestionEdits] = useState<Record<string, string>>({});
   const [newCriterionKey, setNewCriterionKey] = useState('');
   const [newCriterionLabel, setNewCriterionLabel] = useState('');
   const [newCriterionMessage, setNewCriterionMessage] = useState('');
-  const [unreadCount, setUnreadCount] = useState(0);
-  const seenFeedbackIdsRef = useRef<Set<string> | null>(null);
 
   const toggleExpand = (id: string) => {
     setExpandedFeedbacks((prev) => ({
@@ -76,20 +88,7 @@ function AdminDashboard() {
 
     function loadData() {
       return Promise.all([
-        api.get('/admin/feedbacks').then((response) => {
-          const newFeedbacks = response.data.feedbacks;
-          setFeedbacks(newFeedbacks);
-          const currentIds = new Set<string>(newFeedbacks.map((f: { id: string }) => f.id));
-          if (seenFeedbackIdsRef.current === null) {
-            seenFeedbackIdsRef.current = currentIds;
-          } else {
-            const newOnes = newFeedbacks.filter((f: { id: string }) => !seenFeedbackIdsRef.current!.has(f.id));
-            if (newOnes.length > 0) {
-              setUnreadCount((count) => count + newOnes.length);
-            }
-            seenFeedbackIdsRef.current = currentIds;
-          }
-        }),
+        api.get('/admin/feedbacks').then((response) => setFeedbacks(response.data.feedbacks)),
         api.get('/admin/employee-stats').then((response) => setEmployeeStats(response.data.employeeStats)),
         api.get('/admin/stats').then((response) => setParticipantsCount(response.data.uniqueParticipants)),
         api.get('/user/me').then((response) => setAdminName(response.data.name)).catch(() => setAdminName('Admin'))
@@ -135,6 +134,7 @@ function AdminDashboard() {
     try {
       await api.delete(`/admin/feedbacks/${id}`);
       setFeedbacks((current) => current.filter((item) => item.id !== id));
+      setEmployeeSynthesisCache({});
     } catch (error) {
       console.error('Erreur lors de la suppression:', error);
     }
@@ -159,6 +159,7 @@ function AdminDashboard() {
           item.id === id ? { ...item, is_moderated: isModerated } : item
         )
       );
+      setEmployeeSynthesisCache({});
     } catch (error) {
       console.error('Erreur lors de la modération:', error);
     }
@@ -192,15 +193,14 @@ function AdminDashboard() {
     navigate('/');
   }
 
-  function goToFeedbacks() {
-    setUnreadCount(0);
-    setActiveSection('feedbacks');
+  function toggleEmployeeDetail(id: string) {
+    setExpandedEmployeeId((current) => (current === id ? null : id));
+    setTimeout(() => employeeDetailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
   }
 
-  const filteredFeedbacks = feedbacks.filter((feedback) => {
-    const isCompany = feedback.recipient_name?.toLowerCase().includes('entreprise');
-    return adminTab === 'company' ? isCompany : !isCompany;
-  });
+  // "Retours" ne montre que les avis sur l'entreprise (pas de synthèse par personne pertinente ici) ;
+  // les avis sur les collaborateurs vivent uniquement dans la section "Collaborateurs" (synthèse + détail).
+  const filteredFeedbacks = feedbacks.filter((feedback) => feedback.recipient_name?.toLowerCase().includes('entreprise'));
 
   const globalTotal = feedbacks.length;
   const globalVisible = feedbacks.filter((f) => !f.is_moderated).length;
@@ -209,39 +209,12 @@ function AdminDashboard() {
 
   const filteredEmployeeStats = employeeStats.filter((emp) => !emp.name.toLowerCase().includes('entreprise'));
 
-  function computeEmployeeSynthesis(employeeId: string) {
-    const rows = feedbacks.filter((f) => f.recipient_id === employeeId && f.feedback_type !== 'conditions' && f.criteria);
-    const criteriaSums: Record<string, { sum: number; count: number; label: string }> = {};
-    const tagCounts: { positive: Record<string, number>; negative: Record<string, number> } = { positive: {}, negative: {} };
-
-    for (const row of rows) {
-      if (!row.criteria) continue;
-      for (const [key, value] of Object.entries(row.criteria)) {
-        if (!value || typeof value.score !== 'number') continue;
-        if (!criteriaSums[key]) {
-          const question = formQuestions.find((q) => q.question_key === key);
-          criteriaSums[key] = { sum: 0, count: 0, label: question?.label || key };
-        }
-        criteriaSums[key].sum += value.score;
-        criteriaSums[key].count += 1;
-        const bucket = value.score >= 4 ? 'positive' : value.score <= 2 ? 'negative' : null;
-        if (bucket && Array.isArray(value.tags)) {
-          for (const tag of value.tags) {
-            tagCounts[bucket][tag] = (tagCounts[bucket][tag] || 0) + 1;
-          }
-        }
-      }
-    }
-
-    const criteria = Object.entries(criteriaSums)
-      .map(([key, { sum, count, label }]) => ({ key, label, average: count > 0 ? sum / count : 0, count }))
-      .sort((a, b) => b.count - a.count);
-
-    const topTags = (bucket: Record<string, number>) =>
-      Object.entries(bucket).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([tag]) => tag);
-
-    return { criteria, topTags: { positive: topTags(tagCounts.positive), negative: topTags(tagCounts.negative) } };
-  }
+  useEffect(() => {
+    if (!expandedEmployeeId || employeeSynthesisCache[expandedEmployeeId]) return;
+    api.get(`/admin/employees/${expandedEmployeeId}/synthesis`)
+      .then((response) => setEmployeeSynthesisCache((current) => ({ ...current, [expandedEmployeeId]: response.data })))
+      .catch(console.error);
+  }, [expandedEmployeeId]);
 
   async function handleRevealAuthor(feedbackId: string) {
     const reason = window.prompt('Raison de la révélation (obligatoire, tracée dans les logs d\'audit) :');
@@ -284,12 +257,6 @@ function AdminDashboard() {
                 <p className="admin-sidebar-greeting-label">Connecté en tant que</p>
                 <p className="admin-sidebar-greeting-name">{adminName || 'Admin'}</p>
               </div>
-              <button onClick={goToFeedbacks} aria-label="Notifications" className="admin-bell">
-                🔔
-                {unreadCount > 0 && (
-                  <span className="admin-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>
-                )}
-              </button>
             </div>
 
             {NAV_ITEMS.map((item) => (
@@ -300,9 +267,6 @@ function AdminDashboard() {
               >
                 <span className="admin-nav-icon">{item.icon}</span>
                 <span>{item.label}</span>
-                {item.key === 'feedbacks' && unreadCount > 0 && (
-                  <span className="admin-nav-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>
-                )}
               </button>
             ))}
           </aside>
@@ -373,47 +337,11 @@ function AdminDashboard() {
         {/* Retours */}
         {activeSection === 'feedbacks' && (
           <section>
-            <h2 style={{ color: 'var(--color-primary-dark)', fontSize: '2rem', fontWeight: 800, marginBottom: '10px' }}>Tous les retours</h2>
+            <h2 style={{ color: 'var(--color-primary-dark)', fontSize: '2rem', fontWeight: 800, marginBottom: '10px' }}>Avis sur l'entreprise</h2>
             <p style={{ color: '#64748b', fontSize: '1rem', marginBottom: '24px' }}>
-              {isLoading ? 'Chargement...' : `${filteredFeedbacks.length} retour(s) dans cette catégorie`}
+              {isLoading ? 'Chargement...' : `${filteredFeedbacks.length} avis sur les conditions de travail / l'entreprise`}
+              {' — '}pour les avis sur un collaborateur précis (synthèse + détail), voir <strong>👥 Collaborateurs</strong>.
             </p>
-
-            {!isLoading && (
-              <div style={{ display: 'flex', gap: '12px', marginBottom: '30px', flexWrap: 'wrap' }}>
-                <button
-                  onClick={() => setAdminTab('employees')}
-                  style={{
-                    padding: '10px 20px',
-                    borderRadius: '30px',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    transition: 'all 0.3s ease',
-                    background: adminTab === 'employees' ? '#004B9C' : 'rgba(0, 75, 156, 0.08)',
-                    color: adminTab === 'employees' ? 'white' : '#004B9C',
-                    boxShadow: adminTab === 'employees' ? '0 4px 15px rgba(0, 75, 156, 0.4)' : 'none',
-                    border: adminTab === 'employees' ? '2px solid transparent' : '2px solid rgba(0, 75, 156, 0.2)'
-                  }}
-                >
-                  Avis sur les Collaborateurs
-                </button>
-                <button
-                  onClick={() => setAdminTab('company')}
-                  style={{
-                    padding: '10px 20px',
-                    borderRadius: '30px',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    transition: 'all 0.3s ease',
-                    background: adminTab === 'company' ? '#004B9C' : 'rgba(0, 75, 156, 0.08)',
-                    color: adminTab === 'company' ? 'white' : '#004B9C',
-                    boxShadow: adminTab === 'company' ? '0 4px 15px rgba(0, 75, 156, 0.4)' : 'none',
-                    border: adminTab === 'company' ? '2px solid transparent' : '2px solid rgba(0, 75, 156, 0.2)'
-                  }}
-                >
-                  Conditions de Travail
-                </button>
-              </div>
-            )}
 
             {isLoading ? (
               <div className="card" style={{ textAlign: 'center', padding: '48px' }}>
@@ -540,7 +468,7 @@ function AdminDashboard() {
         {activeSection === 'employees' && (
           <section>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '12px' }}>
-              <h2 style={{ color: 'var(--color-primary-dark)', fontSize: '2rem', fontWeight: 800, margin: 0 }}>Collaborateurs</h2>
+              <h2 style={{ color: 'var(--color-primary-dark)', fontSize: '2rem', fontWeight: 800, margin: 0 }}>Espace Collaborateurs</h2>
               <button
                 onClick={() => setShowAddForm((current) => !current)}
                 className="btn-primary"
@@ -550,7 +478,7 @@ function AdminDashboard() {
               </button>
             </div>
             <p style={{ color: '#64748b', fontSize: '1rem', marginBottom: '24px' }}>
-              Aperçu des retours reçus par chaque membre de l'équipe
+              Synthèse des retours reçus par chaque collaborateur (ci-dessous). Cliquez sur <strong>🔍 Voir le détail</strong> sur une carte pour afficher les avis individuels de cette personne.
             </p>
 
             {showAddForm && (
@@ -605,7 +533,7 @@ function AdminDashboard() {
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', textAlign: 'center' }}>
                         <div style={{ background: 'rgba(52, 199, 89, 0.08)', border: '1.5px solid rgba(52, 199, 89, 0.15)', padding: '8px 4px', borderRadius: '12px' }}>
                           <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#34C759' }}>{emp.positive_feedbacks}</div>
-                          <div style={{ color: '#34C759', fontSize: '0.75rem', fontWeight: 600, marginTop: '4px' }}>Positifs</div>
+                          <div style={{ color: '#34C759', fontSize: '0.75rem', fontWeight: 600, marginTop: '4px' }}>Bon</div>
                         </div>
                         <div style={{ background: 'rgba(255, 149, 0, 0.08)', border: '1.5px solid rgba(255, 149, 0, 0.15)', padding: '8px 4px', borderRadius: '12px' }}>
                           <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#FF9500' }}>{emp.neutral_feedbacks}</div>
@@ -613,12 +541,12 @@ function AdminDashboard() {
                         </div>
                         <div style={{ background: 'rgba(255, 59, 48, 0.08)', border: '1.5px solid rgba(255, 59, 48, 0.15)', padding: '8px 4px', borderRadius: '12px' }}>
                           <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#FF3B30' }}>{emp.negative_feedbacks}</div>
-                          <div style={{ color: '#FF3B30', fontSize: '0.75rem', fontWeight: 600, marginTop: '4px' }}>Négatifs</div>
+                          <div style={{ color: '#FF3B30', fontSize: '0.75rem', fontWeight: 600, marginTop: '4px' }}>Moins bon</div>
                         </div>
                       </div>
                       <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
                         <button
-                          onClick={() => setExpandedEmployeeId((current) => (current === emp.id ? null : emp.id))}
+                          onClick={() => toggleEmployeeDetail(emp.id)}
                           className="btn-secondary"
                           style={{
                             background: 'rgba(0, 75, 156, 0.08)',
@@ -658,12 +586,29 @@ function AdminDashboard() {
             {expandedEmployeeId && (() => {
               const emp = filteredEmployeeStats.find((e) => e.id === expandedEmployeeId);
               if (!emp) return null;
-              const { criteria, topTags } = computeEmployeeSynthesis(emp.id);
+              const synthesis = employeeSynthesisCache[expandedEmployeeId];
               const employeeFeedbacks = feedbacks.filter((f) => f.recipient_id === emp.id && f.feedback_type !== 'conditions');
 
+              if (!synthesis) {
+                return (
+                  <div ref={employeeDetailRef} className="card" style={{ marginTop: '30px', padding: '28px', textAlign: 'center' }}>
+                    <p>Chargement de la synthèse...</p>
+                  </div>
+                );
+              }
+
+              const { criteria, topTags, synthesisText } = synthesis;
+
               return (
-                <div className="card" style={{ marginTop: '30px', padding: '28px' }}>
-                  <h3 style={{ margin: '0 0 20px 0', color: 'var(--color-primary-dark)', fontSize: '1.3rem' }}>Détail — {emp.name}</h3>
+                <div ref={employeeDetailRef} className="card" style={{ marginTop: '30px', padding: '28px', border: '2px solid #004B9C' }}>
+                  <h3 style={{ margin: '0 0 20px 0', color: 'var(--color-primary-dark)', fontSize: '1.3rem' }}>🔍 Détail des avis individuels — {emp.name}</h3>
+
+                  {synthesisText && (
+                    <div style={{ marginBottom: '24px', background: 'rgba(0, 75, 156, 0.05)', borderRadius: '12px', padding: '18px 20px' }}>
+                      <p style={{ margin: '0 0 8px 0', color: '#004B9C', fontWeight: 700, fontSize: '0.85rem' }}>📝 Résumé (identique à ce que {emp.name.split(' ')[0]} voit sur son espace)</p>
+                      <p style={{ margin: 0, color: '#0f172a', fontSize: '0.95rem', lineHeight: '1.6' }}>{synthesisText}</p>
+                    </div>
+                  )}
 
                   {criteria.length > 0 && (
                     <div style={{ marginBottom: '24px' }}>
@@ -686,9 +631,10 @@ function AdminDashboard() {
 
                   {(topTags.positive.length > 0 || topTags.negative.length > 0) && (
                     <div style={{ marginBottom: '24px' }}>
+                      <h4 style={{ margin: '0 0 14px 0', color: '#0f172a', fontSize: '1rem' }}>Points fréquemment relevés</h4>
                       {topTags.positive.length > 0 && (
                         <div style={{ marginBottom: '12px' }}>
-                          <p style={{ color: '#34C759', fontWeight: 600, fontSize: '0.85rem', marginBottom: '8px' }}>👍 Points forts</p>
+                          <p style={{ color: '#34C759', fontWeight: 600, fontSize: '0.85rem', marginBottom: '8px' }}>💪 Points forts</p>
                           <div className="tags-container" style={{ borderTop: 'none', padding: 0 }}>
                             {topTags.positive.map((tag) => <span key={tag} className="tag-btn active">{tag}</span>)}
                           </div>
@@ -696,7 +642,7 @@ function AdminDashboard() {
                       )}
                       {topTags.negative.length > 0 && (
                         <div>
-                          <p style={{ color: '#FF3B30', fontWeight: 600, fontSize: '0.85rem', marginBottom: '8px' }}>⚠️ Axes d'amélioration</p>
+                          <p style={{ color: '#FF3B30', fontWeight: 600, fontSize: '0.85rem', marginBottom: '8px' }}>🎯 Points d'amélioration</p>
                           <div className="tags-container" style={{ borderTop: 'none', padding: 0 }}>
                             {topTags.negative.map((tag) => <span key={tag} className="tag-btn">{tag}</span>)}
                           </div>
@@ -839,6 +785,13 @@ function AdminDashboard() {
                 )}
               </div>
             ))}
+          </section>
+        )}
+
+        {/* Mon compte */}
+        {activeSection === 'security' && (
+          <section style={{ display: 'flex', justifyContent: 'center' }}>
+            <ChangePasswordForm />
           </section>
         )}
           </div>

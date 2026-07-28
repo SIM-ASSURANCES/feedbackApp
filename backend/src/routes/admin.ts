@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { authGuardAdmin, authGuardSuperAdmin } from '../middleware/auth';
-import { getAllFeedbacks, deleteFeedback, getStats, moderateFeedback, getEmployeeStats, deleteEmployee, revealFeedbackAuthor } from '../controllers/adminController';
+import { getAllFeedbacks, deleteFeedback, getStats, moderateFeedback, getEmployeeStats, deleteEmployee, revealFeedbackAuthor, getEmployeeSynthesis } from '../controllers/adminController';
 import { getAllFormQuestionsAdmin, updateFormQuestion, createFormQuestion } from '../controllers/formQuestionsController';
 
 const router = Router();
@@ -11,6 +11,7 @@ router.delete('/feedbacks/:id', authGuardAdmin, deleteFeedback);
 router.post('/feedbacks/:id/reveal', authGuardSuperAdmin, revealFeedbackAuthor);
 router.get('/stats', authGuardAdmin, getStats);
 router.get('/employee-stats', authGuardAdmin, getEmployeeStats);
+router.get('/employees/:id/synthesis', authGuardAdmin, getEmployeeSynthesis);
 router.delete('/employees/:id', authGuardAdmin, deleteEmployee);
 router.get('/form-questions', authGuardAdmin, getAllFormQuestionsAdmin);
 router.post('/form-questions', authGuardAdmin, createFormQuestion);

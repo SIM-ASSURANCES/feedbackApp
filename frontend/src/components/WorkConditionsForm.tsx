@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import api from '../services/api';
 import { useFormQuestions } from '../hooks/useFormQuestions';
 
@@ -19,18 +19,24 @@ function WorkConditionsForm({ onSubmit }: WorkConditionsFormProps) {
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState<'success' | 'error'>('success');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showErrors, setShowErrors] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
 
-  // Form State Answers
+  function scrollToTop() {
+    setTimeout(() => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+  }
+
+  // Form State Answers (les curseurs démarrent à 3/5, valeur neutre déjà affichée visuellement)
   const [q1, setQ1] = useState('');
   const [q2, setQ2] = useState('');
-  const [q3, setQ3] = useState<number | null>(null);
+  const [q3, setQ3] = useState(3);
   const [q4, setQ4] = useState('');
   const [q5, setQ5] = useState('');
-  const [q6, setQ6] = useState<number | null>(null);
-  const [q7, setQ7] = useState<number | null>(null);
+  const [q6, setQ6] = useState(3);
+  const [q7, setQ7] = useState(3);
   const [q8, setQ8] = useState('');
   const [q9, setQ9] = useState('');
-  const [q10, setQ10] = useState<number | null>(null);
+  const [q10, setQ10] = useState(3);
   const [q11, setQ11] = useState('');
 
   useEffect(() => {
@@ -51,24 +57,46 @@ function WorkConditionsForm({ onSubmit }: WorkConditionsFormProps) {
   }, []);
 
   // Validation checks for each step (les questions désactivées par l'admin ne sont pas requises)
-  const isStep1Valid = (!isActive('q1') || q1 !== '') && (!isActive('q2') || q2 !== '') && (!isActive('q3') || q3 !== null);
-  const isStep2Valid = (!isActive('q4') || q4 !== '') && (!isActive('q5') || q5 !== '') && (!isActive('q6') || q6 !== null);
-  const isStep3Valid = (!isActive('q7') || q7 !== null) && (!isActive('q8') || q8 !== '') && (!isActive('q9') || q9 !== '');
-  const isStep4Valid = (!isActive('q10') || q10 !== null) && (!isActive('q11') || q11 !== '');
+  // Les curseurs (q3, q6, q7, q10) ont toujours une valeur par défaut (3/5) : pas de contrôle "requis" pour eux.
+  const isStep1Valid = (!isActive('q1') || q1 !== '') && (!isActive('q2') || q2 !== '');
+  const isStep2Valid = (!isActive('q4') || q4 !== '') && (!isActive('q5') || q5 !== '');
+  const isStep3Valid = (!isActive('q8') || q8 !== '') && (!isActive('q9') || q9 !== '');
+  const isStep4Valid = (!isActive('q11') || q11 !== '');
 
   const handleNext = () => {
-    if (step === 1 && isStep1Valid) setStep(2);
-    else if (step === 2 && isStep2Valid) setStep(3);
-    else if (step === 3 && isStep3Valid) setStep(4);
+    const valid = step === 1 ? isStep1Valid : step === 2 ? isStep2Valid : isStep3Valid;
+    if (valid) {
+      setStep((s) => s + 1);
+      setShowErrors(false);
+      setMessage('');
+      scrollToTop();
+    } else {
+      setShowErrors(true);
+      setMessage('Veuillez répondre à toutes les questions marquées en rouge avant de continuer.');
+      setMessageType('error');
+      scrollToTop();
+    }
   };
 
   const handlePrev = () => {
-    if (step > 1) setStep(step - 1);
+    if (step > 1) {
+      setStep((s) => s - 1);
+      setShowErrors(false);
+      setMessage('');
+      scrollToTop();
+    }
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!isStep4Valid || !recipientId) return;
+    if (!isStep4Valid) {
+      setShowErrors(true);
+      setMessage('Veuillez répondre à toutes les questions marquées en rouge avant de valider.');
+      setMessageType('error');
+      scrollToTop();
+      return;
+    }
+    if (!recipientId) return;
 
     setIsSubmitting(true);
     setMessage('');
@@ -214,16 +242,18 @@ function WorkConditionsForm({ onSubmit }: WorkConditionsFormProps) {
       // Reset form
       setQ1('');
       setQ2('');
-      setQ3(null);
+      setQ3(3);
       setQ4('');
       setQ5('');
-      setQ6(null);
-      setQ7(null);
+      setQ6(3);
+      setQ7(3);
       setQ8('');
       setQ9('');
-      setQ10(null);
+      setQ10(3);
       setQ11('');
       setStep(1);
+      setShowErrors(false);
+      scrollToTop();
 
       if (onSubmit) {
         setTimeout(() => onSubmit(), 2000);
@@ -232,14 +262,15 @@ function WorkConditionsForm({ onSubmit }: WorkConditionsFormProps) {
       console.error(err);
       setMessage(err.response?.data?.message || 'Une erreur est survenue lors de l\'envoi.');
       setMessageType('error');
+      scrollToTop();
     } finally {
       setIsSubmitting(false);
     }
   };
 
   // Helper component for Slider
-  const renderSlider = (value: number | null, onChange: (val: number) => void) => {
-    const displayVal = value === null ? 3 : value;
+  const renderSlider = (value: number, onChange: (val: number) => void) => {
+    const displayVal = value;
     return (
       <div style={{ display: 'flex', flexDirection: 'column', width: '100%', alignItems: 'center', margin: '8px 0' }}>
         <input
@@ -286,7 +317,7 @@ function WorkConditionsForm({ onSubmit }: WorkConditionsFormProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="form-glass" style={{ maxWidth: '550px' }}>
+    <form ref={formRef} onSubmit={handleSubmit} className="form-glass" style={{ maxWidth: '550px' }}>
       {message && <p className={`message message-${messageType}`}>{message}</p>}
 
       {/* Progress Stepper */}
@@ -317,10 +348,12 @@ function WorkConditionsForm({ onSubmit }: WorkConditionsFormProps) {
             key={s} 
             onClick={() => {
               // Aller à une étape déjà validée ou directement accessible
-              if (s === 1) setStep(1);
-              else if (s === 2 && isStep1Valid) setStep(2);
-              else if (s === 3 && isStep1Valid && isStep2Valid) setStep(3);
-              else if (s === 4 && isStep1Valid && isStep2Valid && isStep3Valid) setStep(4);
+              const canGo = s === 1 || (s === 2 && isStep1Valid) || (s === 3 && isStep1Valid && isStep2Valid) || (s === 4 && isStep1Valid && isStep2Valid && isStep3Valid);
+              if (canGo) {
+                setStep(s);
+                setShowErrors(false);
+                scrollToTop();
+              }
             }}
             style={{ 
               zIndex: 1, 
@@ -372,10 +405,11 @@ function WorkConditionsForm({ onSubmit }: WorkConditionsFormProps) {
 
             {/* Q1 */}
             {isActive('q1') && (
-              <div className="criterion-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '12px', padding: '20px' }}>
+              <div className="criterion-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '12px', padding: '20px', border: showErrors && q1 === '' ? '2px solid #FF3B30' : '2px solid transparent', borderRadius: '12px', background: showErrors && q1 === '' ? 'rgba(255, 59, 48, 0.05)' : 'transparent' }}>
                 <span className="criterion-label" style={{ fontSize: '1rem', color: '#0f172a', fontWeight: 700 }}>
                   {getLabel('q1', '🛠️ Tu disposes des outils nécessaires pour bien travailler ?')}
                 </span>
+                {showErrors && q1 === '' && <span style={{ color: '#FF3B30', fontSize: '0.8rem', fontWeight: 600 }}>⚠️ Réponse requise</span>}
                 <div className="tags-container" style={{ justifyContent: 'center', borderTop: 'none', padding: 0 }}>
                   {['Oui totalement', 'Partiellement', 'Non'].map((option) => (
                     <button
@@ -393,10 +427,11 @@ function WorkConditionsForm({ onSubmit }: WorkConditionsFormProps) {
 
             {/* Q2 */}
             {isActive('q2') && (
-              <div className="criterion-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '12px', padding: '20px' }}>
+              <div className="criterion-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '12px', padding: '20px', border: showErrors && q2 === '' ? '2px solid #FF3B30' : '2px solid transparent', borderRadius: '12px', background: showErrors && q2 === '' ? 'rgba(255, 59, 48, 0.05)' : 'transparent' }}>
                 <span className="criterion-label" style={{ fontSize: '1rem', color: '#0f172a', fontWeight: 700 }}>
                   {getLabel('q2', '⚖️ Ta charge de travail est raisonnable ?')}
                 </span>
+                {showErrors && q2 === '' && <span style={{ color: '#FF3B30', fontSize: '0.8rem', fontWeight: 600 }}>⚠️ Réponse requise</span>}
                 <div className="tags-container" style={{ justifyContent: 'center', borderTop: 'none', padding: 0 }}>
                   {['Oui', 'Parfois', 'Non'].map((option) => (
                     <button
@@ -432,10 +467,11 @@ function WorkConditionsForm({ onSubmit }: WorkConditionsFormProps) {
 
             {/* Q4 */}
             {isActive('q4') && (
-              <div className="criterion-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '12px', padding: '20px' }}>
+              <div className="criterion-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '12px', padding: '20px', border: showErrors && q4 === '' ? '2px solid #FF3B30' : '2px solid transparent', borderRadius: '12px', background: showErrors && q4 === '' ? 'rgba(255, 59, 48, 0.05)' : 'transparent' }}>
                 <span className="criterion-label" style={{ fontSize: '1rem', color: '#0f172a', fontWeight: 700 }}>
                   {getLabel('q4', '📢 Les objectifs et consignes sont clairement communiqués ?')}
                 </span>
+                {showErrors && q4 === '' && <span style={{ color: '#FF3B30', fontSize: '0.8rem', fontWeight: 600 }}>⚠️ Réponse requise</span>}
                 <div className="tags-container" style={{ justifyContent: 'center', borderTop: 'none', padding: 0 }}>
                   {['Toujours', 'Souvent', 'Rarement', 'Jamais'].map((option) => (
                     <button
@@ -453,10 +489,11 @@ function WorkConditionsForm({ onSubmit }: WorkConditionsFormProps) {
 
             {/* Q5 */}
             {isActive('q5') && (
-              <div className="criterion-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '12px', padding: '20px' }}>
+              <div className="criterion-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '12px', padding: '20px', border: showErrors && q5 === '' ? '2px solid #FF3B30' : '2px solid transparent', borderRadius: '12px', background: showErrors && q5 === '' ? 'rgba(255, 59, 48, 0.05)' : 'transparent' }}>
                 <span className="criterion-label" style={{ fontSize: '1rem', color: '#0f172a', fontWeight: 700 }}>
                   {getLabel('q5', '👂 Tu te sens écouté(e) lorsque tu exprimes une préoccupation ?')}
                 </span>
+                {showErrors && q5 === '' && <span style={{ color: '#FF3B30', fontSize: '0.8rem', fontWeight: 600 }}>⚠️ Réponse requise</span>}
                 <div className="tags-container" style={{ justifyContent: 'center', borderTop: 'none', padding: 0 }}>
                   {['Oui', 'Parfois', 'Non'].map((option) => (
                     <button
@@ -502,10 +539,11 @@ function WorkConditionsForm({ onSubmit }: WorkConditionsFormProps) {
 
             {/* Q8 */}
             {isActive('q8') && (
-              <div className="criterion-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '12px', padding: '20px' }}>
+              <div className="criterion-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '12px', padding: '20px', border: showErrors && q8 === '' ? '2px solid #FF3B30' : '2px solid transparent', borderRadius: '12px', background: showErrors && q8 === '' ? 'rgba(255, 59, 48, 0.05)' : 'transparent' }}>
                 <span className="criterion-label" style={{ fontSize: '1rem', color: '#0f172a', fontWeight: 700 }}>
                   {getLabel('q8', "🎭 L'ambiance au sein de l'équipe est ?")}
                 </span>
+                {showErrors && q8 === '' && <span style={{ color: '#FF3B30', fontSize: '0.8rem', fontWeight: 600 }}>⚠️ Réponse requise</span>}
                 <div className="tags-container" style={{ justifyContent: 'center', borderTop: 'none', padding: 0 }}>
                   {['Excellente', 'Bonne', 'Moyenne', 'Mauvaise'].map((option) => (
                     <button
@@ -523,10 +561,11 @@ function WorkConditionsForm({ onSubmit }: WorkConditionsFormProps) {
 
             {/* Q9 */}
             {isActive('q9') && (
-              <div className="criterion-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '12px', padding: '20px' }}>
+              <div className="criterion-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '12px', padding: '20px', border: showErrors && q9 === '' ? '2px solid #FF3B30' : '2px solid transparent', borderRadius: '12px', background: showErrors && q9 === '' ? 'rgba(255, 59, 48, 0.05)' : 'transparent' }}>
                 <span className="criterion-label" style={{ fontSize: '1rem', color: '#0f172a', fontWeight: 700 }}>
                   {getLabel('q9', "📈 Tu vois des perspectives d'évolution pour toi ici ?")}
                 </span>
+                {showErrors && q9 === '' && <span style={{ color: '#FF3B30', fontSize: '0.8rem', fontWeight: 600 }}>⚠️ Réponse requise</span>}
                 <div className="tags-container" style={{ justifyContent: 'center', borderTop: 'none', padding: 0 }}>
                   {['Oui', 'Peut-être', 'Non'].map((option) => (
                     <button
@@ -560,10 +599,11 @@ function WorkConditionsForm({ onSubmit }: WorkConditionsFormProps) {
 
             {/* Q11 */}
             {isActive('q11') && (
-              <div className="criterion-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '12px', padding: '20px' }}>
+              <div className="criterion-row" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '12px', padding: '20px', border: showErrors && q11 === '' ? '2px solid #FF3B30' : '2px solid transparent', borderRadius: '12px', background: showErrors && q11 === '' ? 'rgba(255, 59, 48, 0.05)' : 'transparent' }}>
                 <span className="criterion-label" style={{ fontSize: '1rem', color: '#0f172a', fontWeight: 700 }}>
                   {getLabel('q11', '💌 Tu recommanderais SIM Assurances comme lieu de travail ?')}
                 </span>
+                {showErrors && q11 === '' && <span style={{ color: '#FF3B30', fontSize: '0.8rem', fontWeight: 600 }}>⚠️ Réponse requise</span>}
                 <div className="tags-container" style={{ justifyContent: 'center', borderTop: 'none', padding: 0 }}>
                   {['Oui', 'Peut-être', 'Non'].map((option) => (
                     <button
@@ -609,11 +649,6 @@ function WorkConditionsForm({ onSubmit }: WorkConditionsFormProps) {
           <button
             type="button"
             onClick={handleNext}
-            disabled={
-              (step === 1 && !isStep1Valid) ||
-              (step === 2 && !isStep2Valid) ||
-              (step === 3 && !isStep3Valid)
-            }
             className="btn-primary"
             style={{
               border: '2px solid transparent',
@@ -630,7 +665,7 @@ function WorkConditionsForm({ onSubmit }: WorkConditionsFormProps) {
         ) : (
           <button
             type="submit"
-            disabled={!isStep4Valid || isSubmitting || !recipientId}
+            disabled={isSubmitting || !recipientId}
             className="btn-primary"
             style={{
               border: '2px solid transparent',

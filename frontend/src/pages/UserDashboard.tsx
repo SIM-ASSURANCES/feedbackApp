@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
+import ChangePasswordForm from '../components/ChangePasswordForm';
 import api, { setAuthToken } from '../services/api';
 
 interface Synthesis {
@@ -10,8 +11,9 @@ interface Synthesis {
   positiveCount: number;
   neutralCount: number;
   negativeCount: number;
-  criteria: Array<{ key: string; label: string; average: number; count: number }>;
+  criteria: Array<{ key: string; label: string; shortLabel: string; average: number; count: number }>;
   topTags: { positive: string[]; negative: string[] };
+  synthesisText: string;
 }
 
 const EMPTY_SYNTHESIS: Synthesis = {
@@ -21,15 +23,15 @@ const EMPTY_SYNTHESIS: Synthesis = {
   neutralCount: 0,
   negativeCount: 0,
   criteria: [],
-  topTags: { positive: [], negative: [] }
+  topTags: { positive: [], negative: [] },
+  synthesisText: ''
 };
 
 function UserDashboard() {
   const [synthesis, setSynthesis] = useState<Synthesis>(EMPTY_SYNTHESIS);
   const [userName, setUserName] = useState('');
   const [isLoading, setIsLoading] = useState(true);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const previousTotalRef = useRef<number | null>(null);
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -42,16 +44,7 @@ function UserDashboard() {
 
     function loadData() {
       return Promise.all([
-        api.get('/user/me/feedbacks/synthesis').then((response) => {
-          const data = response.data as Synthesis;
-          setSynthesis(data);
-          if (previousTotalRef.current === null) {
-            previousTotalRef.current = data.totalCount;
-          } else if (data.totalCount > previousTotalRef.current) {
-            setUnreadCount((count) => count + (data.totalCount - previousTotalRef.current!));
-            previousTotalRef.current = data.totalCount;
-          }
-        }),
+        api.get('/user/me/feedbacks/synthesis').then((response) => setSynthesis(response.data as Synthesis)),
         api.get('/user/me').then((response) => setUserName(response.data.name)).catch(() => setUserName('Utilisateur'))
       ]);
     }
@@ -69,9 +62,9 @@ function UserDashboard() {
   }
 
   const breakdown = [
-    { label: 'Positifs', value: synthesis.positiveCount, color: '#34C759' },
+    { label: 'Bon', value: synthesis.positiveCount, color: '#34C759' },
     { label: 'Neutres', value: synthesis.neutralCount, color: '#FF9500' },
-    { label: 'Négatifs', value: synthesis.negativeCount, color: '#FF3B30' }
+    { label: 'Moins bon', value: synthesis.negativeCount, color: '#FF3B30' }
   ];
 
   return (
@@ -82,11 +75,8 @@ function UserDashboard() {
         {/* Hero Section */}
         <section className="hero" style={{ marginBottom: '50px', position: 'relative' }}>
           <button
-            onClick={() => {
-              setUnreadCount(0);
-              document.getElementById('user-synthesis')?.scrollIntoView({ behavior: 'smooth' });
-            }}
-            aria-label="Notifications"
+            onClick={() => setShowPasswordForm((current) => !current)}
+            aria-label="Mon compte"
             style={{
               position: 'absolute',
               top: '20px',
@@ -104,34 +94,19 @@ function UserDashboard() {
               cursor: 'pointer'
             }}
           >
-            🔔
-            {unreadCount > 0 && (
-              <span style={{
-                position: 'absolute',
-                top: '-6px',
-                right: '-6px',
-                background: '#FF3B30',
-                color: 'white',
-                borderRadius: '50%',
-                minWidth: '22px',
-                height: '22px',
-                fontSize: '0.75rem',
-                fontWeight: 700,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: '0 4px',
-                border: '2px solid var(--color-bg)'
-              }}>
-                {unreadCount > 9 ? '9+' : unreadCount}
-              </span>
-            )}
+            🔑
           </button>
           <div className="hero-content">
             <h1>Bienvenue, <span className="highlight-purple">{userName}</span> 👋</h1>
             <p>Découvrez la synthèse des retours constructifs que vos collègues vous ont partagés</p>
           </div>
         </section>
+
+        {showPasswordForm && (
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '40px' }}>
+            <ChangePasswordForm />
+          </div>
+        )}
 
         {/* Stats Card */}
         <div className="card" style={{ marginBottom: '40px', textAlign: 'center' }}>
@@ -163,6 +138,13 @@ function UserDashboard() {
             </div>
           ) : (
             <>
+              {synthesis.synthesisText && (
+                <div className="card" style={{ maxWidth: '700px', margin: '0 auto 30px', padding: '28px', background: 'linear-gradient(135deg, rgba(0,75,156,0.06), rgba(81,174,226,0.06))' }}>
+                  <h3 style={{ margin: '0 0 12px 0', color: 'var(--color-primary-dark)', fontSize: '1.15rem' }}>📝 Résumé</h3>
+                  <p style={{ color: '#0f172a', fontSize: '1rem', lineHeight: '1.7', margin: 0 }}>{synthesis.synthesisText}</p>
+                </div>
+              )}
+
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '30px', maxWidth: '500px', margin: '0 auto 30px' }}>
                 {breakdown.map((b) => (
                   <div key={b.label} style={{ background: `${b.color}14`, border: `1.5px solid ${b.color}26`, padding: '16px 8px', borderRadius: '14px', textAlign: 'center' }}>
@@ -191,12 +173,13 @@ function UserDashboard() {
                 </div>
               )}
 
+
               {(synthesis.topTags.positive.length > 0 || synthesis.topTags.negative.length > 0) && (
                 <div className="card" style={{ maxWidth: '700px', margin: '0 auto', padding: '28px' }}>
                   <h3 style={{ margin: '0 0 16px 0', color: 'var(--color-primary-dark)', fontSize: '1.15rem' }}>Points fréquemment relevés</h3>
                   {synthesis.topTags.positive.length > 0 && (
                     <div style={{ marginBottom: '16px' }}>
-                      <p style={{ color: '#34C759', fontWeight: 600, fontSize: '0.85rem', marginBottom: '10px' }}>👍 Points forts</p>
+                      <p style={{ color: '#34C759', fontWeight: 600, fontSize: '0.85rem', marginBottom: '10px' }}>💪 Points forts</p>
                       <div className="tags-container" style={{ borderTop: 'none', padding: 0 }}>
                         {synthesis.topTags.positive.map((tag) => (
                           <span key={tag} className="tag-btn active">{tag}</span>
@@ -206,7 +189,7 @@ function UserDashboard() {
                   )}
                   {synthesis.topTags.negative.length > 0 && (
                     <div>
-                      <p style={{ color: '#FF3B30', fontWeight: 600, fontSize: '0.85rem', marginBottom: '10px' }}>⚠️ Axes d'amélioration</p>
+                      <p style={{ color: '#FF3B30', fontWeight: 600, fontSize: '0.85rem', marginBottom: '10px' }}>🎯 Points d'amélioration</p>
                       <div className="tags-container" style={{ borderTop: 'none', padding: 0 }}>
                         {synthesis.topTags.negative.map((tag) => (
                           <span key={tag} className="tag-btn">{tag}</span>
